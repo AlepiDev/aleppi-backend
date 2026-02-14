@@ -1,5 +1,5 @@
 # models.py
-from __future__ import annotations
+#from __future__ import annotations
 
 from datetime import datetime
 from datetime import time
@@ -11,6 +11,12 @@ from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import relationship
+from enum import Enum
+from datetime import datetime
+from typing import Optional, List
+from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy.orm import relationship
+
 
 class UserBase(SQLModel):
     email: str = Field(index=True)
@@ -45,12 +51,13 @@ class ProfessionalBase(SQLModel):
     specialty: str
     years_experience: int = 0
     degree: Optional[str] = None
-    license_number: Optional[str] = None          
-    license_file_path: Optional[str] = None       
+    license_number: Optional[str] = None
+    license_file_path: Optional[str] = None
     state: str
     city: str
     mobile_phone: str
-    active: bool
+    active: bool = False 
+
 
 
 class ProfessionalSocials(SQLModel, table=True):
@@ -105,6 +112,7 @@ class Professional(ProfessionalBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
 
+
     user: "User" = Relationship(
         sa_relationship=relationship("User", back_populates="professional")
     )
@@ -119,6 +127,14 @@ class Professional(ProfessionalBase, table=True):
 
     reviews: List["ProfessionalReview"] = Relationship(
         sa_relationship=relationship("ProfessionalReview", back_populates="professional")
+    )
+
+    addresses: List["ProfessionalAddress"] = Relationship(
+        sa_relationship=relationship("ProfessionalAddress", back_populates="professional")
+    )
+
+    articles: List["Article"] = Relationship(
+    sa_relationship=relationship("Article", back_populates="professional")
     )
 
 # -------------------------
@@ -232,3 +248,117 @@ class StripeInvoice(SQLModel, TimestampMixin, table=True):
         default=None,
         sa_column=Column(JSONB, nullable=True),
     )
+
+# models.py (agrega esto)
+class ProfessionalAddress(SQLModel, table=True):
+    __tablename__ = "professional_addresses"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    professional_id: int = Field(foreign_key="professionals.id", index=True)
+
+    label: Optional[str] = None
+    street: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    postal_code: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    is_primary: Optional[bool] = True
+
+    professional: "Professional" = Relationship(
+        sa_relationship=relationship("Professional", back_populates="addresses")
+    )
+
+
+
+class ArticleStatus(str, Enum):
+    draft = "draft"
+    published = "published"
+    inactive = "inactive"
+
+
+class CommentStatus(str, Enum):
+    published = "published"
+    blocked = "blocked"
+    in_review = "in_review"
+
+
+class Article(SQLModel, table=True):
+    __tablename__ = "articles"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    professional_id: int = Field(foreign_key="professionals.id", index=True)
+
+    title: str
+    slug: str = Field(index=True, unique=True)
+    content: str
+
+    status: ArticleStatus = Field(default=ArticleStatus.draft, index=True)
+
+    published_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    reviews_count: int = 0
+    rating_avg: float = 0.0
+
+    professional: "Professional" = Relationship(
+        sa_relationship=relationship("Professional", back_populates="articles")
+    )
+    comments: List["ArticleComment"] = Relationship(
+        sa_relationship=relationship("ArticleComment", back_populates="article")
+    )
+    reviews: List["ArticleReview"] = Relationship(
+        sa_relationship=relationship("ArticleReview", back_populates="article")
+    )
+
+
+class ArticleComment(SQLModel, table=True):
+    __tablename__ = "article_comments"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    article_id: int = Field(foreign_key="articles.id", index=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
+
+    content: str
+    status: CommentStatus = Field(default=CommentStatus.in_review, index=True)
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    article: "Article" = Relationship(
+        sa_relationship=relationship("Article", back_populates="comments")
+    )
+
+
+class ArticleReview(SQLModel, table=True):
+    __tablename__ = "article_reviews"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    article_id: int = Field(foreign_key="articles.id", index=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
+
+    rating: int
+    comment: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    article: "Article" = Relationship(
+        sa_relationship=relationship("Article", back_populates="reviews")
+    )
+
+class UserSettings(SQLModel, table=True):
+    __tablename__ = "user_settings"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True, unique=True)
+
+    notify_email: bool = True
+    notify_whatsapp: bool = False
+
+    two_factor_enabled: bool = False
+
+    language: str = "es"
+    timezone: str = "America/Mexico_City"
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
