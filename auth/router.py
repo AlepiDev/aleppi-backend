@@ -181,6 +181,7 @@ def reset_password(
     payload: ResetPasswordRequest,
     session: Session = Depends(get_session),
 ):
+    # 1) Decodificar token
     try:
         data = jwt.decode(payload.token, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:
@@ -189,19 +190,22 @@ def reset_password(
             detail="Token inválido o expirado",
         )
 
+    # 2) Validar scope
     if data.get("scope") != "password_reset":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Token no es de recuperación de contraseña",
         )
 
+    # 3) Obtener user_id del claim sub
     user_id = data.get("sub")
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Token inválido",
+            detail="Token inválido (sin sub)",
         )
 
+    # 4) Buscar usuario
     user = session.get(User, int(user_id))
     if not user:
         raise HTTPException(
@@ -209,12 +213,12 @@ def reset_password(
             detail="Usuario no encontrado",
         )
 
+    # 5) Actualizar password
     user.hashed_password = get_password_hash(payload.new_password)
     session.add(user)
     session.commit()
 
     return {"detail": "Contraseña actualizada correctamente"}
-
 
 @router.post("/refresh", response_model=Token)
 def refresh_token(payload: RefreshRequest, 
