@@ -9,7 +9,7 @@ from passlib.context import CryptContext
 from sqlmodel import Session, select
 
 from database import get_session
-from models import StripeSubscription, User
+from models import StripeSubscription, User,Professional
 
 from .schemas import (ForgotPasswordRequest, LoginRequest, RefreshRequest,
                       ResetPasswordRequest, Token)
@@ -49,13 +49,26 @@ def _encode_token(payload: dict, expires_delta: timedelta) -> str:
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
-def create_access_token(*, user_id: int, role: int, email: str, active: bool) -> str:
+def create_access_token(
+    *,
+    user_id: int,
+    role: int,
+    email: str,
+    active: bool,
+    actor_type: str | None = None,
+    actor_id: int | None = None,
+) -> str:
     now = datetime.now()
     payload = {
         "sub": str(user_id),
         "email": str(email),
         "role": int(role),
         "is_active": bool(active),
+
+        # 👇 NUEVO
+        "actor_type": actor_type,   # "professional" | "admin" | None
+        "actor_id": actor_id,       # professional.id | admin.id | None
+
         "jti": str(uuid4()),
         "iat": int(now.timestamp()),
         "nbf": int(now.timestamp()),
@@ -108,11 +121,23 @@ def login(payload: LoginRequest, session: Session = Depends(get_session)):
     if not user.is_active:
         raise HTTPException(status_code=401, detail="Usuario inactivo")
 
+    actor_type = None
+    actor_id = None
+
+    # role=2 => professional
+    if user.role == 2:
+        prof_id = session.exec(select(Professional.id).where(Professional.user_id == user.id)).first()
+        actor_type = "professional"
+        actor_id = prof_id
+
+
     access_token = create_access_token(
         user_id=user.id,
         role=user.role,
         email=user.email,
         active=has_active_subscription(session, user.id),
+        actor_type=actor_type,
+        actor_id=actor_id,
     )
     refresh_token = create_refresh_token(user_id=user.id)
 
@@ -192,7 +217,8 @@ def reset_password(
 
 
 @router.post("/refresh", response_model=Token)
-def refresh_token(payload: RefreshRequest, session: Session = Depends(get_session)):
+def refresh_token(payload: RefreshRequest, 
+                  session: Session = Depends(get_session)):
     try:
         data = jwt.decode(
             payload.refresh_token,
@@ -215,11 +241,18 @@ def refresh_token(payload: RefreshRequest, session: Session = Depends(get_sessio
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="Usuario inválido o inactivo")
 
+    if user.role == 2:
+        prof_id = session.exec(select(Professional.id).where(Professional.user_id == user.id)).first()
+        actor_type = "professional"
+        actor_id = prof_id
+
     access_token = create_access_token(
         user_id=user.id,
         role=user.role,
         email=user.email,
         active=has_active_subscription(session, user.id),
+        actor_type=actor_type,
+        actor_id=actor_id,
     )
     new_refresh = create_refresh_token(user_id=user.id)  # opcional: rotación
 
