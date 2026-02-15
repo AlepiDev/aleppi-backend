@@ -1,12 +1,11 @@
 # auth/deps.py
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import jwt, JWTError
+from jose import JWTError, jwt
 from sqlmodel import Session
 
 from database import get_session
 from models import User
-
 
 SECRET_KEY = "CAMBIA_ESTA_CLAVE_SUPER_SECRETA"
 ALGORITHM = "HS256"
@@ -16,7 +15,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),         
+    token: str = Depends(oauth2_scheme),
     session: Session = Depends(get_session),
 ) -> User:
     """

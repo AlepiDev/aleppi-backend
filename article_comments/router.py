@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 
 from database import get_session
 from models import Article, ArticleComment
-from professionals.schemas import CommentCreate, CommentUpdate, CommentRead
+from professionals.schemas import CommentCreate, CommentRead, CommentUpdate
 
 router = APIRouter(prefix="/articles/{article_id}/comments", tags=["article-comments"])
 

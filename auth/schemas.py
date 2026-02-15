@@ -1,17 +1,20 @@
-
 # auth/schemas.py
-from typing import Optional
+from typing import List, Optional
+
 from pydantic import BaseModel, ConfigDict, EmailStr
-from typing import List
+
 from stripe_local.schemas import StripeSubscriptionRead
+
 
 class Token(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
 
+
 class RefreshRequest(BaseModel):
     refresh_token: str
+
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -32,5 +35,5 @@ class UserRead(BaseModel):
     email: EmailStr
     is_active: bool
     role: int
-    stripe_subscriptions: List[StripeSubscriptionRead] = []  
+    stripe_subscriptions: List[StripeSubscriptionRead] = []
     model_config = ConfigDict(from_attributes=True)

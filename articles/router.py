@@ -2,20 +2,26 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from database import get_session
-from models import Professional, Article
-from professionals.schemas import ArticleCreate, ArticleUpdate, ArticleRead
+from models import Article, Professional
+from professionals.schemas import ArticleCreate, ArticleRead, ArticleUpdate
 
-router = APIRouter(prefix="/professionals/{professional_id}/articles", tags=["articles"])
+router = APIRouter(
+    prefix="/professionals/{professional_id}/articles", tags=["articles"]
+)
 
 
 @router.post("/", response_model=ArticleRead, status_code=201)
-def create_article(professional_id: int, payload: ArticleCreate, session: Session = Depends(get_session)):
+def create_article(
+    professional_id: int,
+    payload: ArticleCreate,
+    session: Session = Depends(get_session),
+):
     if not session.get(Professional, professional_id):
         raise HTTPException(404, "Profesional no encontrado")
 
@@ -24,7 +30,10 @@ def create_article(professional_id: int, payload: ArticleCreate, session: Sessio
         raise HTTPException(400, "slug ya existe")
 
     article = Article(professional_id=professional_id, **payload.model_dump())
-    if getattr(article, "status", None) == "published" and getattr(article, "published_at", None) is None:
+    if (
+        getattr(article, "status", None) == "published"
+        and getattr(article, "published_at", None) is None
+    ):
         article.published_at = datetime.utcnow()
 
     session.add(article)
@@ -39,14 +48,20 @@ def list_articles(
     session: Session = Depends(get_session),
     status_: Optional[str] = None,
 ):
-    stmt = select(Article).where(Article.professional_id == professional_id).order_by(Article.created_at.desc())
+    stmt = (
+        select(Article)
+        .where(Article.professional_id == professional_id)
+        .order_by(Article.created_at.desc())
+    )
     if status_:
         stmt = stmt.where(Article.status == status_)
     return session.exec(stmt).all()
 
 
 @router.get("/{article_id}", response_model=ArticleRead)
-def get_article(professional_id: int, article_id: int, session: Session = Depends(get_session)):
+def get_article(
+    professional_id: int, article_id: int, session: Session = Depends(get_session)
+):
     article = session.get(Article, article_id)
     if not article or article.professional_id != professional_id:
         raise HTTPException(404, "Artículo no encontrado")
@@ -54,7 +69,12 @@ def get_article(professional_id: int, article_id: int, session: Session = Depend
 
 
 @router.patch("/{article_id}", response_model=ArticleRead)
-def update_article(professional_id: int, article_id: int, payload: ArticleUpdate, session: Session = Depends(get_session)):
+def update_article(
+    professional_id: int,
+    article_id: int,
+    payload: ArticleUpdate,
+    session: Session = Depends(get_session),
+):
     article = session.get(Article, article_id)
     if not article or article.professional_id != professional_id:
         raise HTTPException(404, "Artículo no encontrado")
@@ -63,7 +83,10 @@ def update_article(professional_id: int, article_id: int, payload: ArticleUpdate
     for k, v in data.items():
         setattr(article, k, v)
 
-    if data.get("status") == "published" and getattr(article, "published_at", None) is None:
+    if (
+        data.get("status") == "published"
+        and getattr(article, "published_at", None) is None
+    ):
         article.published_at = datetime.utcnow()
 
     article.updated_at = datetime.utcnow()
@@ -74,7 +97,9 @@ def update_article(professional_id: int, article_id: int, payload: ArticleUpdate
 
 
 @router.delete("/{article_id}", status_code=204)
-def delete_article(professional_id: int, article_id: int, session: Session = Depends(get_session)):
+def delete_article(
+    professional_id: int, article_id: int, session: Session = Depends(get_session)
+):
     article = session.get(Article, article_id)
     if not article or article.professional_id != professional_id:
         raise HTTPException(404, "Artículo no encontrado")

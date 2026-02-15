@@ -1,7 +1,10 @@
-from typing import Optional, List
+from datetime import datetime, time
+from typing import List, Optional
+
 from pydantic import BaseModel, ConfigDict, EmailStr
+
 from auth.schemas import UserRead
-from datetime import time, datetime
+
 
 class ProfessionalSocialsRead(BaseModel):
     web: Optional[str] = None
@@ -10,18 +13,21 @@ class ProfessionalSocialsRead(BaseModel):
     youtube: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
+
 class ProfessionalScheduleRead(BaseModel):
     day: str
     open: Optional[time] = None
     close: Optional[time] = None
     model_config = ConfigDict(from_attributes=True)
 
+
 class ProfessionalReviewRead(BaseModel):
     id: int
-    user: Optional[str] = None   # si luego quieres nombre, aquí lo llenas
+    user: Optional[str] = None  # si luego quieres nombre, aquí lo llenas
     rating: int
     comment: Optional[str] = None
     date: datetime
+
 
 class ProfessionalCreate(BaseModel):
     # Datos de usuario
@@ -59,7 +65,7 @@ class ProfessionalRead(BaseModel):
     address: Optional[str] = None
     socials: Optional[ProfessionalSocialsRead] = None
     schedule: List[ProfessionalScheduleRead] = []
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -73,12 +79,14 @@ class ProfessionalSocialsUpsert(BaseModel):
     instagram: Optional[str] = None
     youtube: Optional[str] = None
 
+
 class ProfessionalSocialsRead(BaseModel):
     web: Optional[str] = None
     facebook: Optional[str] = None
     instagram: Optional[str] = None
     youtube: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
+
 
 # -------- Schedules --------
 class ProfessionalScheduleCreate(BaseModel):
@@ -87,10 +95,12 @@ class ProfessionalScheduleCreate(BaseModel):
     close: Optional[time] = None
     is_closed: bool = False
 
+
 class ProfessionalScheduleUpdate(BaseModel):
     open: Optional[time] = None
     close: Optional[time] = None
     is_closed: Optional[bool] = None
+
 
 class ProfessionalScheduleRead(BaseModel):
     id: int
@@ -99,6 +109,7 @@ class ProfessionalScheduleRead(BaseModel):
     close: Optional[time] = None
     is_closed: bool
     model_config = ConfigDict(from_attributes=True)
+
 
 # -------- Addresses --------
 class ProfessionalAddressCreate(BaseModel):
@@ -111,6 +122,7 @@ class ProfessionalAddressCreate(BaseModel):
     lng: Optional[float] = None
     is_primary: Optional[bool] = True
 
+
 class ProfessionalAddressUpdate(BaseModel):
     label: Optional[str] = None
     street: Optional[str] = None
@@ -120,6 +132,7 @@ class ProfessionalAddressUpdate(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
     is_primary: Optional[bool] = None
+
 
 class ProfessionalAddressRead(BaseModel):
     id: int
@@ -133,10 +146,12 @@ class ProfessionalAddressRead(BaseModel):
     is_primary: Optional[bool] = True
     model_config = ConfigDict(from_attributes=True)
 
-from pydantic import BaseModel, ConfigDict
-from typing import Optional, List
+
 from datetime import datetime
 from enum import Enum
+from typing import List, Optional
+
+from pydantic import BaseModel, ConfigDict
 
 
 class ArticleStatus(str, Enum):

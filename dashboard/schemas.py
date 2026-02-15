@@ -15,6 +15,7 @@ class DashboardCards(BaseModel):
     Cards principales del dashboard.
     Si algún cálculo falla y decides responder parcial, puedes regresar null.
     """
+
     pending_professionals: Optional[int] = Field(
         default=None, description="Solicitudes en espera de revisión"
     )
@@ -33,14 +34,21 @@ class QuickSummary(BaseModel):
     """
     Bloque de 'Resumen rápido'. Ajusta o expande según tus métricas reales.
     """
+
     avg_professional_approval_hours: Optional[float] = Field(
         default=None, description="Tiempo promedio de aprobación (horas)"
     )
     membership_payments_confirmed_under_5m_pct: Optional[float] = Field(
-        default=None, ge=0, le=100, description="% pagos confirmados en menos de 5 minutos"
+        default=None,
+        ge=0,
+        le=100,
+        description="% pagos confirmados en menos de 5 minutos",
     )
     articles_reported_at_least_once_pct: Optional[float] = Field(
-        default=None, ge=0, le=100, description="% artículos reportados al menos una vez"
+        default=None,
+        ge=0,
+        le=100,
+        description="% artículos reportados al menos una vez",
     )
 
 
@@ -61,7 +69,9 @@ class DashboardError(BaseModel):
     message: str = Field(..., description="Descripción del error")
     code: Optional[str] = Field(default=None, description="Código de error interno")
     retryable: bool = Field(default=False, description="Si vale la pena reintentar")
-    detail: Optional[str] = Field(default=None, description="Detalles técnicos (opcional)")
+    detail: Optional[str] = Field(
+        default=None, description="Detalles técnicos (opcional)"
+    )
 
 
 # -----------------------------
@@ -77,7 +87,9 @@ class DashboardSummaryResponse(BaseModel):
     )
 
     # Ej: '2026-02' o '2026-02-01..2026-02-11' según tu filtro
-    period: Optional[str] = Field(default=None, description="Periodo usado para el cálculo")
+    period: Optional[str] = Field(
+        default=None, description="Periodo usado para el cálculo"
+    )
 
     # Lista de errores si respondes parcial
     errors: list[DashboardError] = Field(default_factory=list)

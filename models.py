@@ -1,21 +1,16 @@
 # models.py
-#from __future__ import annotations
+# from __future__ import annotations
 
-from datetime import datetime
-from datetime import time
-
-from typing import Optional, Dict, Any, List
+from datetime import datetime, time
+from enum import Enum
+from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, text
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship
-from enum import Enum
-from datetime import datetime
-from typing import Optional, List
-from sqlmodel import SQLModel, Field, Relationship
-from sqlalchemy.orm import relationship
+from sqlmodel import Field, Relationship, SQLModel
 
 
 class UserBase(SQLModel):
@@ -33,11 +28,15 @@ class User(UserBase, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     professional: Optional["Professional"] = Relationship(
-        sa_relationship=relationship("Professional", back_populates="user", uselist=False)
+        sa_relationship=relationship(
+            "Professional", back_populates="user", uselist=False
+        )
     )
 
     stripe_customer: Optional["StripeCustomer"] = Relationship(
-        sa_relationship=relationship("StripeCustomer", back_populates="user", uselist=False)
+        sa_relationship=relationship(
+            "StripeCustomer", back_populates="user", uselist=False
+        )
     )
 
     stripe_subscriptions: list["StripeSubscription"] = Relationship(
@@ -56,15 +55,16 @@ class ProfessionalBase(SQLModel):
     state: str
     city: str
     mobile_phone: str
-    active: bool = False 
-
+    active: bool = False
 
 
 class ProfessionalSocials(SQLModel, table=True):
     __tablename__ = "professional_socials"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    professional_id: int = Field(foreign_key="professionals.id", index=True, unique=True)
+    professional_id: int = Field(
+        foreign_key="professionals.id", index=True, unique=True
+    )
 
     web: Optional[str] = None
     facebook: Optional[str] = None
@@ -91,6 +91,7 @@ class ProfessionalSchedule(SQLModel, table=True):
         sa_relationship=relationship("Professional", back_populates="schedules")
     )
 
+
 class ProfessionalReview(SQLModel, table=True):
     __tablename__ = "professional_reviews"
 
@@ -106,36 +107,45 @@ class ProfessionalReview(SQLModel, table=True):
         sa_relationship=relationship("Professional", back_populates="reviews")
     )
 
+
 class Professional(ProfessionalBase, table=True):
     __tablename__ = "professionals"
 
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
 
-
     user: "User" = Relationship(
         sa_relationship=relationship("User", back_populates="professional")
     )
 
     socials: Optional["ProfessionalSocials"] = Relationship(
-        sa_relationship=relationship("ProfessionalSocials", back_populates="professional", uselist=False)
+        sa_relationship=relationship(
+            "ProfessionalSocials", back_populates="professional", uselist=False
+        )
     )
 
     schedules: List["ProfessionalSchedule"] = Relationship(
-        sa_relationship=relationship("ProfessionalSchedule", back_populates="professional")
+        sa_relationship=relationship(
+            "ProfessionalSchedule", back_populates="professional"
+        )
     )
 
     reviews: List["ProfessionalReview"] = Relationship(
-        sa_relationship=relationship("ProfessionalReview", back_populates="professional")
+        sa_relationship=relationship(
+            "ProfessionalReview", back_populates="professional"
+        )
     )
 
     addresses: List["ProfessionalAddress"] = Relationship(
-        sa_relationship=relationship("ProfessionalAddress", back_populates="professional")
+        sa_relationship=relationship(
+            "ProfessionalAddress", back_populates="professional"
+        )
     )
 
     articles: List["Article"] = Relationship(
-    sa_relationship=relationship("Article", back_populates="professional")
+        sa_relationship=relationship("Article", back_populates="professional")
     )
+
 
 # -------------------------
 # Base mixins
@@ -146,12 +156,12 @@ class TimestampMixin:
         sa_column_kwargs={"server_default": text("NOW()")},
     )
 
+
 class UpdatedTimestampMixin:
     updated_at: datetime = Field(
         default_factory=datetime.utcnow,
         sa_column_kwargs={"server_default": text("NOW()")},
     )
-
 
 
 # =====================================================
@@ -249,6 +259,7 @@ class StripeInvoice(SQLModel, TimestampMixin, table=True):
         sa_column=Column(JSONB, nullable=True),
     )
 
+
 # models.py (agrega esto)
 class ProfessionalAddress(SQLModel, table=True):
     __tablename__ = "professional_addresses"
@@ -268,7 +279,6 @@ class ProfessionalAddress(SQLModel, table=True):
     professional: "Professional" = Relationship(
         sa_relationship=relationship("Professional", back_populates="addresses")
     )
-
 
 
 class ArticleStatus(str, Enum):
@@ -345,6 +355,7 @@ class ArticleReview(SQLModel, table=True):
     article: "Article" = Relationship(
         sa_relationship=relationship("Article", back_populates="reviews")
     )
+
 
 class UserSettings(SQLModel, table=True):
     __tablename__ = "user_settings"

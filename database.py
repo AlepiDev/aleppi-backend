@@ -2,7 +2,7 @@
 import os
 from typing import Generator
 
-from sqlmodel import SQLModel, create_engine, Session
+from sqlmodel import Session, SQLModel, create_engine
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",

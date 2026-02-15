@@ -4,8 +4,8 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
 from sqlalchemy import func
+from sqlmodel import Session, select
 
 from database import get_session
 from models import Article, ArticleReview, Professional, ProfessionalReview
@@ -17,12 +17,16 @@ router = APIRouter(prefix="/articles/{article_id}/reviews", tags=["article-revie
 def recompute_article_metrics(session: Session, article_id: int) -> None:
     reviews_count = int(
         session.exec(
-            select(func.count()).select_from(ArticleReview).where(ArticleReview.article_id == article_id)
+            select(func.count())
+            .select_from(ArticleReview)
+            .where(ArticleReview.article_id == article_id)
         ).one()
     )
     rating_avg = float(
         session.exec(
-            select(func.coalesce(func.avg(ArticleReview.rating), 0)).where(ArticleReview.article_id == article_id)
+            select(func.coalesce(func.avg(ArticleReview.rating), 0)).where(
+                ArticleReview.article_id == article_id
+            )
         ).one()
     )
 
@@ -37,12 +41,16 @@ def recompute_article_metrics(session: Session, article_id: int) -> None:
 def recompute_professional_metrics(session: Session, professional_id: int) -> None:
     reviews_count = int(
         session.exec(
-            select(func.count()).select_from(ProfessionalReview).where(ProfessionalReview.professional_id == professional_id)
+            select(func.count())
+            .select_from(ProfessionalReview)
+            .where(ProfessionalReview.professional_id == professional_id)
         ).one()
     )
     rating_avg = float(
         session.exec(
-            select(func.coalesce(func.avg(ProfessionalReview.rating), 0)).where(ProfessionalReview.professional_id == professional_id)
+            select(func.coalesce(func.avg(ProfessionalReview.rating), 0)).where(
+                ProfessionalReview.professional_id == professional_id
+            )
         ).one()
     )
 
@@ -54,7 +62,11 @@ def recompute_professional_metrics(session: Session, professional_id: int) -> No
 
 
 @router.post("/", response_model=ArticleReviewRead, status_code=201)
-def create_article_review(article_id: int, payload: ArticleReviewCreate, session: Session = Depends(get_session)):
+def create_article_review(
+    article_id: int,
+    payload: ArticleReviewCreate,
+    session: Session = Depends(get_session),
+):
     article = session.get(Article, article_id)
     if not article:
         raise HTTPException(404, "Artículo no encontrado")
@@ -62,7 +74,9 @@ def create_article_review(article_id: int, payload: ArticleReviewCreate, session
     if payload.rating < 1 or payload.rating > 5:
         raise HTTPException(400, "rating debe ser 1..5")
 
-    row = ArticleReview(article_id=article_id, rating=payload.rating, comment=payload.comment)
+    row = ArticleReview(
+        article_id=article_id, rating=payload.rating, comment=payload.comment
+    )
     session.add(row)
     session.commit()
     session.refresh(row)

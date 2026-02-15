@@ -4,16 +4,15 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, HTTPException
-from sqlmodel import Session, select
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
+from sqlmodel import Session, select
 
 from auth.deps import get_current_admin
 from database import get_session
-from models import User, Professional, StripeInvoice, StripeSubscription
+from models import Professional, StripeInvoice, StripeSubscription, User
 
-from .schemas import PaymentsListResponse, PaymentRow
-
+from .schemas import PaymentRow, PaymentsListResponse
 
 router = APIRouter(prefix="/admin/payments", tags=["admin-payments"])
 
@@ -25,13 +24,15 @@ def _money_from_cents(cents: Optional[int]) -> float:
 @router.get("/history", response_model=PaymentsListResponse)
 def payments_history(
     q: Optional[str] = None,
-    status: Optional[str] = Query(default=None, description="Ej: paid, open, uncollectible, void, draft"),
+    status: Optional[str] = Query(
+        default=None, description="Ej: paid, open, uncollectible, void, draft"
+    ),
     from_date: Optional[date] = None,
     to_date: Optional[date] = None,
     limit: int = 50,
     offset: int = 0,
     session: Session = Depends(get_session),
-    #_: User = Depends(get_current_admin),
+    # _: User = Depends(get_current_admin),
 ) -> PaymentsListResponse:
     """
     Historial basado en StripeInvoice.
@@ -50,7 +51,8 @@ def payments_history(
         # link invoice -> subscription (si existe)
         .join(
             StripeSubscription,
-            StripeSubscription.stripe_subscription_id == StripeInvoice.stripe_subscription_id,
+            StripeSubscription.stripe_subscription_id
+            == StripeInvoice.stripe_subscription_id,
             isouter=True,
         )
         # link subscription.user_id -> professional.user_id
@@ -63,10 +65,14 @@ def payments_history(
 
     # Filtros de fecha usando paid_at si existe; si no, usa created_at
     if from_date or to_date:
-        start_dt = datetime.combine(from_date or date.today() - timedelta(days=3650), datetime.min.time())
+        start_dt = datetime.combine(
+            from_date or date.today() - timedelta(days=3650), datetime.min.time()
+        )
         end_dt = datetime.combine(to_date or date.today(), datetime.max.time())
         stmt = stmt.where(
-            func.coalesce(StripeInvoice.paid_at, StripeInvoice.created_at).between(start_dt, end_dt)
+            func.coalesce(StripeInvoice.paid_at, StripeInvoice.created_at).between(
+                start_dt, end_dt
+            )
         )
 
     if status:
@@ -75,8 +81,7 @@ def payments_history(
     if q:
         like = f"%{q.strip()}%"
         stmt = stmt.where(
-            (Professional.first_name.ilike(like))
-            | (Professional.last_name.ilike(like))
+            (Professional.first_name.ilike(like)) | (Professional.last_name.ilike(like))
         )
 
     total_stmt = select(func.count()).select_from(stmt.subquery())
@@ -87,7 +92,11 @@ def payments_history(
 
     items: list[PaymentRow] = []
     for inv, prof_id, first, last, sub_id, tx_id in rows:
-        prof_name = " ".join([p for p in [first, last] if p]) if first or last else "(Sin profesional)"
+        prof_name = (
+            " ".join([p for p in [first, last] if p])
+            if first or last
+            else "(Sin profesional)"
+        )
         items.append(
             PaymentRow(
                 invoice_id=inv.id,
@@ -110,7 +119,7 @@ def payments_history(
 def confirm_payment(
     invoice_id: str,
     session: Session = Depends(get_session),
-    #_: User = Depends(get_current_admin),
+    # _: User = Depends(get_current_admin),
 ):
     inv = session.get(StripeInvoice, invoice_id)
     if not inv:

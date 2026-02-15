@@ -1,18 +1,19 @@
 # payments/stripe_router.py
-import os
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Optional, Set
 
 import stripe
-from fastapi import APIRouter, HTTPException, Request, status, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr
-from sqlmodel import Session, select
 from sqlalchemy.exc import IntegrityError
+from sqlmodel import Session, select
 
-from models import StripeEvent, StripeCustomer, StripeSubscription, StripeInvoice
 from database import get_session
+from models import (StripeCustomer, StripeEvent, StripeInvoice,
+                    StripeSubscription)
 
 logger = logging.getLogger("payments.stripe")
 
@@ -78,7 +79,9 @@ def _extract_subscription_id_from_invoice(obj: dict) -> Optional[str]:
     if sub_id:
         return sub_id
 
-    parent_sub = (obj.get("parent") or {}).get("subscription_details", {}).get("subscription")
+    parent_sub = (
+        (obj.get("parent") or {}).get("subscription_details", {}).get("subscription")
+    )
     if parent_sub:
         return parent_sub
 
@@ -118,8 +121,12 @@ def create_checkout_session(
 ):
     _init_stripe()
 
-    success_url_base = _get_env("STRIPE_SUCCESS_URL", "http://localhost:3000/profesionales/membresia/success")
-    cancel_url = _get_env("STRIPE_CANCEL_URL", "http://localhost:3000/profesionales/membresia/cancel")
+    success_url_base = _get_env(
+        "STRIPE_SUCCESS_URL", "http://localhost:3000/profesionales/membresia/success"
+    )
+    cancel_url = _get_env(
+        "STRIPE_CANCEL_URL", "http://localhost:3000/profesionales/membresia/cancel"
+    )
     tx = (payload.transaction_id or "").strip()
 
     success_url = f"{success_url_base}?session_id={{CHECKOUT_SESSION_ID}}"
@@ -131,7 +138,9 @@ def create_checkout_session(
     default_price = _get_env("STRIPE_PRICE_ID_PRO", "")
     price_id = (payload.price_id or default_price).strip()
     if not price_id:
-        raise HTTPException(status_code=500, detail="Falta STRIPE_PRICE_ID_PRO o price_id.")
+        raise HTTPException(
+            status_code=500, detail="Falta STRIPE_PRICE_ID_PRO o price_id."
+        )
 
     allowed = _allowed_price_ids()
     if allowed and price_id not in allowed:
@@ -145,11 +154,13 @@ def create_checkout_session(
             customer_email=payload.email,
             success_url=f"{success_url_base}?session_id={{CHECKOUT_SESSION_ID}}&transaction_id={tx}",
             cancel_url=cancel_url,
-            client_reference_id=str(payload.user_id) if payload.user_id is not None else None,
+            client_reference_id=(
+                str(payload.user_id) if payload.user_id is not None else None
+            ),
             metadata={
                 "user_id": str(payload.user_id) if payload.user_id is not None else "",
                 "chosen_price_id": price_id,
-                "transaction_id": tx
+                "transaction_id": tx,
             },
         )
     except Exception:
@@ -185,8 +196,12 @@ def _insert_event_idempotent(
         return False
 
 
-def _upsert_customer(db: Session, user_id: int, stripe_customer_id: str, email: Optional[str]) -> StripeCustomer:
-    existing = db.exec(select(StripeCustomer).where(StripeCustomer.user_id == user_id)).first()
+def _upsert_customer(
+    db: Session, user_id: int, stripe_customer_id: str, email: Optional[str]
+) -> StripeCustomer:
+    existing = db.exec(
+        select(StripeCustomer).where(StripeCustomer.user_id == user_id)
+    ).first()
     if existing:
         existing.stripe_customer_id = stripe_customer_id
         if email:
@@ -198,7 +213,9 @@ def _upsert_customer(db: Session, user_id: int, stripe_customer_id: str, email: 
         return existing
 
     by_cus = db.exec(
-        select(StripeCustomer).where(StripeCustomer.stripe_customer_id == stripe_customer_id)
+        select(StripeCustomer).where(
+            StripeCustomer.stripe_customer_id == stripe_customer_id
+        )
     ).first()
     if by_cus:
         by_cus.user_id = user_id
@@ -234,10 +251,12 @@ def _upsert_subscription(
     current_period_start: Optional[datetime],
     current_period_end: Optional[datetime],
     canceled_at: Optional[datetime],
-    transaction_id: Optional[str] = None, 
+    transaction_id: Optional[str] = None,
 ) -> StripeSubscription:
     sub = db.exec(
-        select(StripeSubscription).where(StripeSubscription.stripe_subscription_id == stripe_subscription_id)
+        select(StripeSubscription).where(
+            StripeSubscription.stripe_subscription_id == stripe_subscription_id
+        )
     ).first()
 
     if sub:
@@ -291,7 +310,9 @@ def _insert_invoice(
     raw_json: dict,
 ) -> StripeInvoice:
     existing = db.exec(
-        select(StripeInvoice).where(StripeInvoice.stripe_invoice_id == stripe_invoice_id)
+        select(StripeInvoice).where(
+            StripeInvoice.stripe_invoice_id == stripe_invoice_id
+        )
     ).first()
     if existing:
         return existing
@@ -385,17 +406,23 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_session)):
         # -----------------------------------------
         if event_type == "checkout.session.completed":
             metadata = obj.get("metadata") or {}
-            user_id = _safe_int(metadata.get("user_id")) or _safe_int(obj.get("client_reference_id"))
+            user_id = _safe_int(metadata.get("user_id")) or _safe_int(
+                obj.get("client_reference_id")
+            )
             if not user_id:
                 return {"status": "ok"}
             transaction_id = (metadata.get("transaction_id") or "").strip()  # ✅ NUEVO
             customer_id = obj.get("customer")
             subscription_id = obj.get("subscription")
 
-            email = (obj.get("customer_details") or {}).get("email") or obj.get("customer_email")
+            email = (obj.get("customer_details") or {}).get("email") or obj.get(
+                "customer_email"
+            )
 
             if customer_id:
-                _upsert_customer(db, user_id=user_id, stripe_customer_id=customer_id, email=email)
+                _upsert_customer(
+                    db, user_id=user_id, stripe_customer_id=customer_id, email=email
+                )
 
             # ✅ Aquí Stripe sí trae subscription_id, úsalo para poblar stripe_subscriptions
             if customer_id and subscription_id:
@@ -412,13 +439,19 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_session)):
                         price_id=price_id,
                         status_=sub.get("status", "unknown"),
                         cancel_at_period_end=sub.get("cancel_at_period_end", False),
-                        current_period_start=_to_dt_from_unix(sub.get("current_period_start")),
-                        current_period_end=_to_dt_from_unix(sub.get("current_period_end")),
+                        current_period_start=_to_dt_from_unix(
+                            sub.get("current_period_start")
+                        ),
+                        current_period_end=_to_dt_from_unix(
+                            sub.get("current_period_end")
+                        ),
                         canceled_at=_to_dt_from_unix(sub.get("canceled_at")),
                         transaction_id=transaction_id or None,  # ✅ NUEVO
                     )
                 except Exception:
-                    logger.exception("No pude retrieve/upsert subscription en checkout.session.completed")
+                    logger.exception(
+                        "No pude retrieve/upsert subscription en checkout.session.completed"
+                    )
 
             return {"status": "ok"}
 
@@ -434,7 +467,11 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_session)):
             # user_id por customer
             user_id = None
             if customer_id:
-                cust = db.exec(select(StripeCustomer).where(StripeCustomer.stripe_customer_id == customer_id)).first()
+                cust = db.exec(
+                    select(StripeCustomer).where(
+                        StripeCustomer.stripe_customer_id == customer_id
+                    )
+                ).first()
                 if cust:
                     user_id = cust.user_id
 
@@ -448,7 +485,9 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_session)):
                 amount_due=obj.get("amount_due"),
                 currency=obj.get("currency"),
                 status_=obj.get("status"),
-                paid_at=_to_dt_from_unix((obj.get("status_transitions") or {}).get("paid_at")),
+                paid_at=_to_dt_from_unix(
+                    (obj.get("status_transitions") or {}).get("paid_at")
+                ),
                 raw_json=obj,
             )
 
@@ -468,12 +507,19 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_session)):
                         price_id=price_id,
                         status_=sub.get("status", "unknown"),
                         cancel_at_period_end=sub.get("cancel_at_period_end", False),
-                        current_period_start=_to_dt_from_unix(sub.get("current_period_start")),
-                        current_period_end=_to_dt_from_unix(sub.get("current_period_end")),
+                        current_period_start=_to_dt_from_unix(
+                            sub.get("current_period_start")
+                        ),
+                        current_period_end=_to_dt_from_unix(
+                            sub.get("current_period_end")
+                        ),
                         canceled_at=_to_dt_from_unix(sub.get("canceled_at")),
                     )
                 except Exception:
-                    logger.exception("Subscription.retrieve falló en invoice.payment_succeeded (id=%s)", subscription_id)
+                    logger.exception(
+                        "Subscription.retrieve falló en invoice.payment_succeeded (id=%s)",
+                        subscription_id,
+                    )
 
             return {"status": "ok"}
 
@@ -498,13 +544,20 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_session)):
         # -----------------------------------------
         # C) Subscription lifecycle (estado)
         # -----------------------------------------
-        elif event_type in ("customer.subscription.updated", "customer.subscription.deleted"):
+        elif event_type in (
+            "customer.subscription.updated",
+            "customer.subscription.deleted",
+        ):
             subscription_id = obj.get("id")
             customer_id = obj.get("customer")
 
             user_id = None
             if customer_id:
-                cust = db.exec(select(StripeCustomer).where(StripeCustomer.stripe_customer_id == customer_id)).first()
+                cust = db.exec(
+                    select(StripeCustomer).where(
+                        StripeCustomer.stripe_customer_id == customer_id
+                    )
+                ).first()
                 if cust:
                     user_id = cust.user_id
 
@@ -524,7 +577,9 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_session)):
                     price_id=price_id,
                     status_=status_,
                     cancel_at_period_end=obj.get("cancel_at_period_end", False),
-                    current_period_start=_to_dt_from_unix(obj.get("current_period_start")),
+                    current_period_start=_to_dt_from_unix(
+                        obj.get("current_period_start")
+                    ),
                     current_period_end=_to_dt_from_unix(obj.get("current_period_end")),
                     canceled_at=_to_dt_from_unix(obj.get("canceled_at")),
                 )
@@ -535,12 +590,16 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_session)):
         return {"status": "ok"}
 
     except Exception:
-        logger.exception("Webhook procesando evento falló (type=%s id=%s)", event_type, event_id)
+        logger.exception(
+            "Webhook procesando evento falló (type=%s id=%s)", event_type, event_id
+        )
         return {"status": "ok"}
+
 
 class ConfirmRequest(BaseModel):
     session_id: str
     transaction_id: Optional[str] = None
+
 
 class ConfirmResponse(BaseModel):
     ok: bool
@@ -579,13 +638,16 @@ def confirm_payment(payload: ConfirmRequest, db: Session = Depends(get_session))
     if payload.transaction_id and meta_tx and payload.transaction_id.strip() != meta_tx:
         raise HTTPException(status_code=400, detail="transaction_id no coincide")
 
-    session_status = s.get("status")             # complete/open/expired
-    payment_status = s.get("payment_status")     # paid/unpaid/no_payment_required
+    session_status = s.get("status")  # complete/open/expired
+    payment_status = s.get("payment_status")  # paid/unpaid/no_payment_required
     sub_id = s.get("subscription")
     cus_id = s.get("customer")
 
     # 3) If not paid/complete, do not reconcile
-    if not (session_status == "complete" and payment_status in ("paid", "no_payment_required")):
+    if not (
+        session_status == "complete"
+        and payment_status in ("paid", "no_payment_required")
+    ):
         return ConfirmResponse(
             ok=False,
             status="not_paid",
@@ -606,7 +668,9 @@ def confirm_payment(payload: ConfirmRequest, db: Session = Depends(get_session))
 
     # 5) If already in DB -> active
     already = db.exec(
-        select(StripeSubscription).where(StripeSubscription.stripe_subscription_id == sub_id)
+        select(StripeSubscription).where(
+            StripeSubscription.stripe_subscription_id == sub_id
+        )
     ).first()
 
     if already:

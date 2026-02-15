@@ -2,19 +2,17 @@
 from datetime import datetime, timedelta
 from typing import Optional
 from uuid import uuid4
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlmodel import Session, select
 
 from database import get_session
-from models import User, StripeSubscription
-from .schemas import (
-    Token,
-    LoginRequest,
-    ForgotPasswordRequest,
-    ResetPasswordRequest,RefreshRequest
-)
+from models import StripeSubscription, User
+
+from .schemas import (ForgotPasswordRequest, LoginRequest, RefreshRequest,
+                      ResetPasswordRequest, Token)
 
 SECRET_KEY = "CAMBIA_ESTA_CLAVE_SUPER_SECRETA"
 ALGORITHM = "HS256"
@@ -27,6 +25,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 # ----------------- helpers ----------------- #
+
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
@@ -49,22 +48,22 @@ def _encode_token(payload: dict, expires_delta: timedelta) -> str:
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
+
 def create_access_token(*, user_id: int, role: int, email: str, active: bool) -> str:
     now = datetime.now()
     payload = {
         "sub": str(user_id),
         "email": str(email),
         "role": int(role),
-        "is_active":bool(active),
+        "is_active": bool(active),
         "jti": str(uuid4()),
         "iat": int(now.timestamp()),
         "nbf": int(now.timestamp()),
         "exp": int((now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)).timestamp()),
-        "iss": 'aleppi-backend',
-        "aud": 'aleppi-frontend',
+        "iss": "aleppi-backend",
+        "aud": "aleppi-frontend",
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-
 
 
 def create_refresh_token(*, user_id: int) -> str:
@@ -76,19 +75,29 @@ def create_refresh_token(*, user_id: int) -> str:
         expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
     )
 
+
 def get_user_by_email(session: Session, email: str) -> Optional[User]:
     statement = select(User).where(User.email == email)
     return session.exec(statement).first()
 
+
 ACTIVE_STATUSES = {"active", "trialing"}
+
+
 def has_active_subscription(session: Session, user_id: int) -> bool:
-    stmt = select(StripeSubscription.id).where(
-        StripeSubscription.user_id == user_id,
-        StripeSubscription.status.in_(ACTIVE_STATUSES),
-    ).limit(1)
+    stmt = (
+        select(StripeSubscription.id)
+        .where(
+            StripeSubscription.user_id == user_id,
+            StripeSubscription.status.in_(ACTIVE_STATUSES),
+        )
+        .limit(1)
+    )
     return session.exec(stmt).first() is not None
 
+
 # ----------------- endpoints ----------------- #
+
 
 @router.post("/login", response_model=Token)
 def login(payload: LoginRequest, session: Session = Depends(get_session)):
@@ -180,6 +189,7 @@ def reset_password(
     session.commit()
 
     return {"detail": "Contraseña actualizada correctamente"}
+
 
 @router.post("/refresh", response_model=Token)
 def refresh_token(payload: RefreshRequest, session: Session = Depends(get_session)):

@@ -1,28 +1,41 @@
 # routers/dashboard.py
-from typing import List
-
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
-from sqlmodel import Session, select
-from uuid import uuid4
-from pathlib import Path
 import shutil
+from pathlib import Path
+from typing import List
+from uuid import uuid4
+
+from fastapi import (APIRouter, Depends, File, Form, HTTPException, UploadFile,
+                     status)
 from passlib.context import CryptContext
 from sqlalchemy import func
+from sqlmodel import Session, select
+
 from database import get_session
-from models import User, Professional
-from .schemas import DashboardCards,DashboardSummaryResponse,QuickSummary
+from models import Professional, User
+
+from .schemas import DashboardCards, DashboardSummaryResponse, QuickSummary
+
 router = APIRouter(prefix="/admin_dashboard", tags=["admin_dashboard"])
 
 
 def count_active_professionals(session: Session) -> int:
-    stmt = select(func.count()).select_from(Professional).where(Professional.active.is_(True))
+    stmt = (
+        select(func.count())
+        .select_from(Professional)
+        .where(Professional.active.is_(True))
+    )
     return int(session.exec(stmt).one())
 
 
 def count_pending_professionals(session: Session) -> int:
     # pending = active != True  => False o NULL
-    stmt = select(func.count()).select_from(Professional).where(Professional.active.is_not(True))
+    stmt = (
+        select(func.count())
+        .select_from(Professional)
+        .where(Professional.active.is_not(True))
+    )
     return int(session.exec(stmt).one())
+
 
 @router.post("/dashboard/summary", response_model=DashboardSummaryResponse)
 def dashboard_summary(session: Session = Depends(get_session)):

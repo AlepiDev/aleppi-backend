@@ -1,27 +1,31 @@
 # routers/professionals.py
 from __future__ import annotations
 
-from typing import List
 import logging
-from uuid import uuid4
-from pathlib import Path
 import shutil
+from pathlib import Path
+from typing import List
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
-from sqlmodel import Session, select
-from sqlalchemy.orm import selectinload
-from sqlalchemy import update
-
+from fastapi import (APIRouter, Depends, File, Form, HTTPException, UploadFile,
+                     status)
 from passlib.context import CryptContext
+from sqlalchemy import update
+from sqlalchemy.orm import selectinload
+from sqlmodel import Session, select
 
 from database import get_session
-from models import User, Professional, ProfessionalSocials, ProfessionalSchedule, ProfessionalAddress
-from professionals.schemas import (
-    ProfessionalRead, ProfessionalStatusUpdate,
-    ProfessionalSocialsUpsert, ProfessionalSocialsRead,
-    ProfessionalScheduleCreate, ProfessionalScheduleUpdate, ProfessionalScheduleRead,
-    ProfessionalAddressCreate, ProfessionalAddressUpdate, ProfessionalAddressRead,
-)
+from models import (Professional, ProfessionalAddress, ProfessionalSchedule,
+                    ProfessionalSocials, User)
+from professionals.schemas import (ProfessionalAddressCreate,
+                                   ProfessionalAddressRead,
+                                   ProfessionalAddressUpdate, ProfessionalRead,
+                                   ProfessionalScheduleCreate,
+                                   ProfessionalScheduleRead,
+                                   ProfessionalScheduleUpdate,
+                                   ProfessionalSocialsRead,
+                                   ProfessionalSocialsUpsert,
+                                   ProfessionalStatusUpdate)
 
 logger = logging.getLogger("app")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -208,7 +212,9 @@ def upsert_socials(
         raise HTTPException(status_code=404, detail="Profesional no encontrado")
 
     socials = session.exec(
-        select(ProfessionalSocials).where(ProfessionalSocials.professional_id == professional_id)
+        select(ProfessionalSocials).where(
+            ProfessionalSocials.professional_id == professional_id
+        )
     ).first()
 
     if socials is None:
@@ -226,7 +232,9 @@ def upsert_socials(
 @router.get("/{professional_id}/socials", response_model=ProfessionalSocialsRead)
 def get_socials(professional_id: int, session: Session = Depends(get_session)):
     socials = session.exec(
-        select(ProfessionalSocials).where(ProfessionalSocials.professional_id == professional_id)
+        select(ProfessionalSocials).where(
+            ProfessionalSocials.professional_id == professional_id
+        )
     ).first()
     if not socials:
         raise HTTPException(status_code=404, detail="Socials no encontrados")
@@ -234,7 +242,9 @@ def get_socials(professional_id: int, session: Session = Depends(get_session)):
 
 
 # ---------- Schedules (1:N) ----------
-@router.get("/{professional_id}/schedules", response_model=List[ProfessionalScheduleRead])
+@router.get(
+    "/{professional_id}/schedules", response_model=List[ProfessionalScheduleRead]
+)
 def list_schedules(professional_id: int, session: Session = Depends(get_session)):
     return session.exec(
         select(ProfessionalSchedule)
@@ -243,7 +253,11 @@ def list_schedules(professional_id: int, session: Session = Depends(get_session)
     ).all()
 
 
-@router.post("/{professional_id}/schedules", response_model=ProfessionalScheduleRead, status_code=201)
+@router.post(
+    "/{professional_id}/schedules",
+    response_model=ProfessionalScheduleRead,
+    status_code=201,
+)
 def create_schedule(
     professional_id: int,
     payload: ProfessionalScheduleCreate,
@@ -259,7 +273,10 @@ def create_schedule(
     return row
 
 
-@router.patch("/{professional_id}/schedules/{schedule_id}", response_model=ProfessionalScheduleRead)
+@router.patch(
+    "/{professional_id}/schedules/{schedule_id}",
+    response_model=ProfessionalScheduleRead,
+)
 def update_schedule(
     professional_id: int,
     schedule_id: int,
@@ -280,7 +297,9 @@ def update_schedule(
 
 
 @router.delete("/{professional_id}/schedules/{schedule_id}", status_code=204)
-def delete_schedule(professional_id: int, schedule_id: int, session: Session = Depends(get_session)):
+def delete_schedule(
+    professional_id: int, schedule_id: int, session: Session = Depends(get_session)
+):
     row = session.get(ProfessionalSchedule, schedule_id)
     if not row or row.professional_id != professional_id:
         raise HTTPException(status_code=404, detail="Schedule no encontrado")
@@ -291,7 +310,9 @@ def delete_schedule(professional_id: int, schedule_id: int, session: Session = D
 
 
 # ---------- Addresses (1:N) ----------
-@router.get("/{professional_id}/addresses", response_model=List[ProfessionalAddressRead])
+@router.get(
+    "/{professional_id}/addresses", response_model=List[ProfessionalAddressRead]
+)
 def list_addresses(professional_id: int, session: Session = Depends(get_session)):
     return session.exec(
         select(ProfessionalAddress)
@@ -300,7 +321,11 @@ def list_addresses(professional_id: int, session: Session = Depends(get_session)
     ).all()
 
 
-@router.post("/{professional_id}/addresses", response_model=ProfessionalAddressRead, status_code=201)
+@router.post(
+    "/{professional_id}/addresses",
+    response_model=ProfessionalAddressRead,
+    status_code=201,
+)
 def create_address(
     professional_id: int,
     payload: ProfessionalAddressCreate,
@@ -323,7 +348,9 @@ def create_address(
     return row
 
 
-@router.patch("/{professional_id}/addresses/{address_id}", response_model=ProfessionalAddressRead)
+@router.patch(
+    "/{professional_id}/addresses/{address_id}", response_model=ProfessionalAddressRead
+)
 def update_address(
     professional_id: int,
     address_id: int,
@@ -355,8 +382,13 @@ def update_address(
     return row
 
 
-@router.post("/{professional_id}/addresses/{address_id}/make-primary", response_model=ProfessionalAddressRead)
-def make_primary_address(professional_id: int, address_id: int, session: Session = Depends(get_session)):
+@router.post(
+    "/{professional_id}/addresses/{address_id}/make-primary",
+    response_model=ProfessionalAddressRead,
+)
+def make_primary_address(
+    professional_id: int, address_id: int, session: Session = Depends(get_session)
+):
     row = session.get(ProfessionalAddress, address_id)
     if not row or row.professional_id != professional_id:
         raise HTTPException(status_code=404, detail="Address no encontrado")
@@ -375,7 +407,9 @@ def make_primary_address(professional_id: int, address_id: int, session: Session
 
 
 @router.delete("/{professional_id}/addresses/{address_id}", status_code=204)
-def delete_address(professional_id: int, address_id: int, session: Session = Depends(get_session)):
+def delete_address(
+    professional_id: int, address_id: int, session: Session = Depends(get_session)
+):
     row = session.get(ProfessionalAddress, address_id)
     if not row or row.professional_id != professional_id:
         raise HTTPException(status_code=404, detail="Address no encontrado")

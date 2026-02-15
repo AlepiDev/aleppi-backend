@@ -1,15 +1,14 @@
 # routers/admin_professionals.py
 from __future__ import annotations
 
-from typing import Optional, List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
 
-from database import get_session
 from auth.deps import get_current_admin
+from database import get_session
 from models import Professional, User
-
 
 router = APIRouter(prefix="/admin/professionals", tags=["admin-professionals"])
 
@@ -25,7 +24,7 @@ def list_pending_professionals(
     limit: int = 50,
     offset: int = 0,
     session: Session = Depends(get_session),
-    #_: User = Depends(get_current_admin),
+    # _: User = Depends(get_current_admin),
 ):
     """
     Pendientes = Professional.active != True  (False o NULL)
@@ -51,7 +50,7 @@ def list_active_professionals(
     limit: int = 50,
     offset: int = 0,
     session: Session = Depends(get_session),
-    #_: User = Depends(get_current_admin),
+    # _: User = Depends(get_current_admin),
 ):
     """
     Activos = Professional.active == True
