@@ -50,6 +50,7 @@ class ProfessionalBase(SQLModel):
     specialty: str
     description: Optional[str] = None
     skills: Optional[str] = None  # Comma-separated skills
+    url_photo: Optional[str] = None
     years_experience: int = 0
     degree: Optional[str] = None
     license_number: Optional[str] = None

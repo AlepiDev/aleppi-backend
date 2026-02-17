@@ -53,6 +53,7 @@ async def create_professional(
     state: str = Form(...),
     city: str = Form(...),
     mobile_phone: str = Form(...),
+    photo_file: UploadFile | None = File(None),
     license_file: UploadFile = File(...),
     session: Session = Depends(get_session),
 ):
@@ -65,7 +66,12 @@ async def create_professional(
     session.commit()
     session.refresh(user)
 
-    # Upload license file to S3, Azure, or local storage
+    # Upload photo to Azure Blob Storage
+    url_photo = None
+    if photo_file is not None:
+        url_photo = await storage_service.upload_file(photo_file, "uploads/photos")
+
+    # Upload license file to Azure Blob Storage
     license_file_path = await storage_service.upload_file(license_file, "uploads/licenses")
 
     professional = Professional(
@@ -75,6 +81,7 @@ async def create_professional(
         specialty=specialty,
         description=description,
         skills=skills,
+        url_photo=url_photo,
         years_experience=years_experience,
         degree=degree,
         license_number=license_number,
@@ -126,6 +133,7 @@ async def update_professional(
     state: str = Form(...),
     city: str = Form(...),
     mobile_phone: str = Form(...),
+    photo_file: UploadFile | None = File(None),
     license_file: UploadFile | None = File(None),
     session: Session = Depends(get_session),
 ):
@@ -142,8 +150,14 @@ async def update_professional(
         user.hashed_password = get_password_hash(password)
     session.add(user)
 
+    # Upload photo to Azure Blob Storage if provided
+    if photo_file is not None:
+        professional.url_photo = await storage_service.upload_file(
+            photo_file, "uploads/photos"
+        )
+
+    # Upload license file to Azure Blob Storage if provided
     if license_file is not None:
-        # Upload license file to S3, Azure, or local storage
         professional.license_file_path = await storage_service.upload_file(
             license_file, "uploads/licenses"
         )

@@ -40,6 +40,7 @@ class ProfessionalCreate(BaseModel):
     specialty: str
     description: Optional[str] = None
     skills: Optional[str] = None  # Comma-separated skills
+    url_photo: Optional[str] = None
     years_experience: int = 0
     degree: Optional[str] = None
     license_number: Optional[str] = None
@@ -55,6 +56,7 @@ class ProfessionalRead(BaseModel):
     specialty: str
     description: Optional[str]
     skills: Optional[str]  # Comma-separated skills
+    url_photo: Optional[str]
     years_experience: int
     degree: Optional[str]
     license_number: Optional[str]
