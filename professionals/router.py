@@ -26,6 +26,7 @@ from professionals.schemas import (ProfessionalAddressCreate,
                                    ProfessionalSocialsRead,
                                    ProfessionalSocialsUpsert,
                                    ProfessionalStatusUpdate)
+from storage import storage_service
 
 logger = logging.getLogger("app")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -44,6 +45,8 @@ async def create_professional(
     first_name: str = Form(...),
     last_name: str = Form(...),
     specialty: str = Form(...),
+    description: str = Form(None),
+    skills: str = Form(None),
     years_experience: int = Form(0),
     degree: str = Form(None),
     license_number: str = Form(None),
@@ -62,24 +65,20 @@ async def create_professional(
     session.commit()
     session.refresh(user)
 
-    uploads_dir = Path("uploads/licenses")
-    uploads_dir.mkdir(parents=True, exist_ok=True)
-
-    ext = Path(license_file.filename).suffix
-    file_name = f"{uuid4().hex}{ext}"
-    file_path = uploads_dir / file_name
-    with file_path.open("wb") as f:
-        shutil.copyfileobj(license_file.file, f)
+    # Upload license file to S3, Azure, or local storage
+    license_file_path = await storage_service.upload_file(license_file, "uploads/licenses")
 
     professional = Professional(
         user_id=user.id,
         first_name=first_name,
         last_name=last_name,
         specialty=specialty,
+        description=description,
+        skills=skills,
         years_experience=years_experience,
         degree=degree,
         license_number=license_number,
-        license_file_path=str(file_path),
+        license_file_path=license_file_path,
         state=state,
         city=city,
         mobile_phone=mobile_phone,
@@ -119,6 +118,8 @@ async def update_professional(
     first_name: str = Form(...),
     last_name: str = Form(...),
     specialty: str = Form(...),
+    description: str = Form(None),
+    skills: str = Form(None),
     years_experience: int = Form(0),
     degree: str = Form(None),
     license_number: str = Form(None),
@@ -142,21 +143,16 @@ async def update_professional(
     session.add(user)
 
     if license_file is not None:
-        uploads_dir = Path("uploads/licenses")
-        uploads_dir.mkdir(parents=True, exist_ok=True)
-
-        ext = Path(license_file.filename).suffix
-        file_name = f"{uuid4().hex}{ext}"
-        file_path = uploads_dir / file_name
-
-        with file_path.open("wb") as f:
-            shutil.copyfileobj(license_file.file, f)
-
-        professional.license_file_path = str(file_path)
+        # Upload license file to S3, Azure, or local storage
+        professional.license_file_path = await storage_service.upload_file(
+            license_file, "uploads/licenses"
+        )
 
     professional.first_name = first_name
     professional.last_name = last_name
     professional.specialty = specialty
+    professional.description = description
+    professional.skills = skills
     professional.years_experience = years_experience
     professional.degree = degree
     professional.license_number = license_number

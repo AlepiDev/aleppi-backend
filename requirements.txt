@@ -14,3 +14,7 @@ python-multipart
 aiofiles
 
 stripe==11.5.0
+
+# Cloud storage (optional - install as needed)
+#boto3  # For AWS S3
+azure-storage-blob  # For Azure Blob Storage
