@@ -49,6 +49,19 @@ def _encode_token(payload: dict, expires_delta: timedelta) -> str:
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
+def create_password_reset_token(user_id: int) -> str:
+    now = datetime.utcnow()
+    payload = {
+        "sub": str(user_id),
+        "scope": "password_reset",
+        "jti": str(uuid4()),
+        "iat": int(now.timestamp()),
+        # ✅ quita nbf
+        "exp": int((now + timedelta(hours=1)).timestamp()),
+        "iss": "aleppi-backend",
+        "aud": "aleppi-frontend",
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 def create_access_token(
     *,
     user_id: int,
@@ -157,22 +170,17 @@ def forgot_password(
     session: Session = Depends(get_session),
 ):
     user = get_user_by_email(session, payload.email)
+
+    # ✅ Recomendado: NO filtrar usuarios
     if not user:
-        # Podrías responder 200 igual para no filtrar usuarios
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Usuario no encontrado",
-        )
+        return {"detail": "Si el correo existe, se enviará un enlace de recuperación."}
 
-    reset_token = create_access_token(
-        {"sub": str(user.id), "scope": "password_reset"},
-        expires_delta=timedelta(hours=1),
-    )
+    reset_token = create_password_reset_token(user.id)
 
-    # Aquí en producción mandarías email con el link que incluye reset_token
+    # TODO: enviar email con link: FRONTEND_URL/reset-password?token=...
     return {
-        "detail": "Se ha generado un token de recuperación.",
-        "reset_token": reset_token,
+        "detail": "Si el correo existe, se enviará un enlace de recuperación.",
+        "reset_token": reset_token,  # ⚠️ en prod NO lo regreses
     }
 
 
@@ -183,11 +191,18 @@ def reset_password(
 ):
     # 1) Decodificar token
     try:
-        data = jwt.decode(payload.token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
+        data = jwt.decode(
+            payload.token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+            audience="aleppi-frontend",
+            issuer="aleppi-backend",
+            options={"leeway": 60},  # 60s tolerancia
+        )
+    except JWTError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Token inválido o expirado",
+            detail=f"Token inválido o expirado: {str(e)}",
         )
 
     # 2) Validar scope
