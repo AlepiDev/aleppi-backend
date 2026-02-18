@@ -14,7 +14,7 @@ from database import create_db_and_tables
 from professionals.router import router as professionals_router
 from stripe_local.router import router as stripe_router
 from users.router import router as me_settings_router
-
+from articles_web.router import router as articles_web_router
 load_dotenv()
 
 app = FastAPI(
@@ -33,7 +33,7 @@ app.include_router(articles_router)
 app.include_router(article_reviews_router)
 app.include_router(me_settings_router)
 app.include_router(article_comments_router)
-
+app.include_router(articles_web_router)
 
 @app.on_event("startup")
 def on_startup():

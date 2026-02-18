@@ -234,3 +234,10 @@ class ArticleReviewRead(BaseModel):
     comment: Optional[str] = None
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
+class PaginatedArticles(BaseModel):
+    items: List[ArticleRead]
+    total_pages: int
+    page: int
+    page_size: int
+    total_items: int
