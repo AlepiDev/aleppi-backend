@@ -1,6 +1,7 @@
 # routers/professionals.py
 from __future__ import annotations
 
+import json
 import logging
 import shutil
 from pathlib import Path
@@ -45,6 +46,7 @@ async def create_professional(
     first_name: str = Form(...),
     last_name: str = Form(...),
     specialty: str = Form(...),
+    short_description: str = Form(None),
     description: str = Form(None),
     skills: str = Form(None),
     years_experience: int = Form(0),
@@ -79,6 +81,7 @@ async def create_professional(
         first_name=first_name,
         last_name=last_name,
         specialty=specialty,
+        short_description=short_description,
         description=description,
         skills=skills,
         url_photo=url_photo,
@@ -125,6 +128,7 @@ async def update_professional(
     first_name: str = Form(...),
     last_name: str = Form(...),
     specialty: str = Form(...),
+    short_description: str = Form(None),
     description: str = Form(None),
     skills: str = Form(None),
     years_experience: int = Form(0),
@@ -133,7 +137,7 @@ async def update_professional(
     state: str = Form(...),
     city: str = Form(...),
     mobile_phone: str = Form(...),
-    photo_file: UploadFile | None = File(None),
+    photo_file: UploadFile | None = File(None),   # ← corregido
     license_file: UploadFile | None = File(None),
     session: Session = Depends(get_session),
 ):
@@ -150,13 +154,11 @@ async def update_professional(
         user.hashed_password = get_password_hash(password)
     session.add(user)
 
-    # Upload photo to Azure Blob Storage if provided
-    if photo_file is not None:
+    if photo_file is not None:                    # ← corregido
         professional.url_photo = await storage_service.upload_file(
             photo_file, "uploads/photos"
         )
 
-    # Upload license file to Azure Blob Storage if provided
     if license_file is not None:
         professional.license_file_path = await storage_service.upload_file(
             license_file, "uploads/licenses"
@@ -165,6 +167,7 @@ async def update_professional(
     professional.first_name = first_name
     professional.last_name = last_name
     professional.specialty = specialty
+    professional.short_description = short_description
     professional.description = description
     professional.skills = skills
     professional.years_experience = years_experience

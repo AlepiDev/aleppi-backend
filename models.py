@@ -48,6 +48,7 @@ class ProfessionalBase(SQLModel):
     first_name: str
     last_name: str
     specialty: str
+    short_description: Optional[str] = None
     description: Optional[str] = None
     skills: Optional[str] = None  # Comma-separated skills
     url_photo: Optional[str] = None

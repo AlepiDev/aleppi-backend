@@ -186,6 +186,10 @@ class ArticleUpdate(BaseModel):
     status: Optional[ArticleStatus] = None
 
 
+class ArticleStatusUpdate(BaseModel):
+    status: ArticleStatus
+
+
 class ArticleRead(BaseModel):
     id: int
     professional_id: int

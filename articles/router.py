@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 
 from database import get_session
 from models import Article, Professional
-from professionals.schemas import ArticleCreate, ArticleRead, ArticleUpdate
+from professionals.schemas import ArticleCreate, ArticleRead, ArticleStatusUpdate, ArticleUpdate
 
 router = APIRouter(
     prefix="/professionals/{professional_id}/articles", tags=["articles"]
@@ -87,6 +87,28 @@ def update_article(
         data.get("status") == "published"
         and getattr(article, "published_at", None) is None
     ):
+        article.published_at = datetime.utcnow()
+
+    article.updated_at = datetime.utcnow()
+    session.add(article)
+    session.commit()
+    session.refresh(article)
+    return article
+
+
+@router.patch("/{article_id}/status", response_model=ArticleRead)
+def update_article_status(
+    professional_id: int,
+    article_id: int,
+    payload: ArticleStatusUpdate,
+    session: Session = Depends(get_session),
+):
+    article = session.get(Article, article_id)
+    if not article or article.professional_id != professional_id:
+        raise HTTPException(404, "Artículo no encontrado")
+
+    article.status = payload.status
+    if payload.status == "published" and article.published_at is None:
         article.published_at = datetime.utcnow()
 
     article.updated_at = datetime.utcnow()
