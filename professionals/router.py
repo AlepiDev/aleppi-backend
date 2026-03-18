@@ -137,7 +137,11 @@ async def update_professional(
     state: str = Form(...),
     city: str = Form(...),
     mobile_phone: str = Form(...),
-    photo_file: UploadFile | None = File(None),   # ← corregido
+    web: str = Form(None),
+    facebook: str = Form(None),
+    instagram: str = Form(None),
+    youtube: str = Form(None),
+    photo_file: UploadFile | None = File(None),
     license_file: UploadFile | None = File(None),
     session: Session = Depends(get_session),
 ):
@@ -154,7 +158,7 @@ async def update_professional(
         user.hashed_password = get_password_hash(password)
     session.add(user)
 
-    if photo_file is not None:                    # ← corregido
+    if photo_file is not None:
         professional.url_photo = await storage_service.upload_file(
             photo_file, "uploads/photos"
         )
@@ -176,8 +180,24 @@ async def update_professional(
     professional.state = state
     professional.city = city
     professional.mobile_phone = mobile_phone
-
     session.add(professional)
+
+    # Upsert socials
+    socials = session.exec(
+        select(ProfessionalSocials).where(
+            ProfessionalSocials.professional_id == professional_id
+        )
+    ).first()
+
+    if socials is None:
+        socials = ProfessionalSocials(professional_id=professional_id)
+
+    socials.web = web
+    socials.facebook = facebook
+    socials.instagram = instagram
+    socials.youtube = youtube
+    session.add(socials)
+
     session.commit()
     session.refresh(professional)
     return professional
