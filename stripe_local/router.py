@@ -3,7 +3,7 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Optional, Set
+from typing import List, Optional, Set
 
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -13,7 +13,7 @@ from sqlmodel import Session, select
 
 from database import get_session
 from models import (StripeCustomer, StripeEvent, StripeInvoice,
-                    StripeSubscription)
+                    StripeSubscription, User)
 
 logger = logging.getLogger("payments.stripe")
 
@@ -609,6 +609,17 @@ class ConfirmResponse(BaseModel):
     synced: bool = False  # ✅ si el confirm ejecutó upsert en esta llamada
 
 
+class ActiveUserResponse(BaseModel):
+    user_id: int
+    email: str
+    subscription_id: str
+    status: str
+    price_id: str
+    current_period_start: Optional[datetime] = None
+    current_period_end: Optional[datetime] = None
+    cancel_at_period_end: bool
+
+
 def _to_dt_from_unix(ts: Optional[int]):
     if not ts:
         return None
@@ -741,3 +752,43 @@ def confirm_payment(payload: ConfirmRequest, db: Session = Depends(get_session))
         customer_id=cus_id,
         synced=True,
     )
+
+
+@router.get("/active-users", response_model=List[ActiveUserResponse])
+def get_active_users(db: Session = Depends(get_session)):
+    """
+    Retorna todos los usuarios con suscripciones activas.
+    Un usuario es activo si la fecha actual está dentro del período de suscripción
+    (current_period_start <= now <= current_period_end)
+    """
+    now = datetime.now(timezone.utc)
+
+    stmt = (
+        select(StripeSubscription, User)
+        .join(User, User.id == StripeSubscription.user_id)
+        .where(
+            StripeSubscription.current_period_start <= now,
+            StripeSubscription.current_period_end >= now,
+            StripeSubscription.status == "active"
+        )
+        .order_by(StripeSubscription.current_period_end.desc())
+    )
+
+    results = db.exec(stmt).all()
+
+    active_users = []
+    for subscription, user in results:
+        active_users.append(
+            ActiveUserResponse(
+                user_id=user.id,
+                email=user.email,
+                subscription_id=subscription.stripe_subscription_id,
+                status=subscription.status,
+                price_id=subscription.price_id,
+                current_period_start=subscription.current_period_start,
+                current_period_end=subscription.current_period_end,
+                cancel_at_period_end=subscription.cancel_at_period_end,
+            )
+        )
+
+    return active_users

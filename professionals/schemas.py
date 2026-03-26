@@ -1,9 +1,18 @@
 from datetime import datetime, time
+from enum import Enum
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
 from auth.schemas import UserRead
+
+
+class ProfessionalStatus(str, Enum):
+    inactivo = "Inactivo"
+    pendiente = "Pendiente"
+    aprobado = "Aprobado"
+    suspendido = "Suspendido"
+    rechazado = "Rechazado"
 
 
 class ProfessionalSocialsRead(BaseModel):
@@ -47,6 +56,7 @@ class ProfessionalCreate(BaseModel):
     state: str
     city: str
     mobile_phone: str
+    status: str = "Inactivo"
 
 
 class ProfessionalRead(BaseModel):
@@ -64,6 +74,7 @@ class ProfessionalRead(BaseModel):
     state: str
     city: str
     mobile_phone: str
+    status: str
     user: UserRead
 
     rating: Optional[float] = None
@@ -76,7 +87,8 @@ class ProfessionalRead(BaseModel):
 
 
 class ProfessionalStatusUpdate(BaseModel):
-    active: bool
+    active: Optional[bool] = None
+    status: Optional[str] = None
 
 
 class ProfessionalSocialsUpsert(BaseModel):
@@ -161,9 +173,10 @@ from pydantic import BaseModel, ConfigDict
 
 
 class ArticleStatus(str, Enum):
-    draft = "draft"
-    published = "published"
-    inactive = "inactive"
+    pendiente = "Pendiente"
+    drafted = "Drafted"
+    aprobado = "Aprobado"
+    rechazado = "Rechazado"
 
 
 class CommentStatus(str, Enum):
@@ -176,7 +189,7 @@ class ArticleCreate(BaseModel):
     title: str
     slug: str
     content: str
-    status: ArticleStatus = ArticleStatus.draft
+    status: ArticleStatus = ArticleStatus.drafted
 
 
 class ArticleUpdate(BaseModel):

@@ -31,7 +31,7 @@ def create_article(
 
     article = Article(professional_id=professional_id, **payload.model_dump())
     if (
-        getattr(article, "status", None) == "published"
+        getattr(article, "status", None) == "Aprobado"
         and getattr(article, "published_at", None) is None
     ):
         article.published_at = datetime.utcnow()
@@ -84,7 +84,7 @@ def update_article(
         setattr(article, k, v)
 
     if (
-        data.get("status") == "published"
+        data.get("status") == "Aprobado"
         and getattr(article, "published_at", None) is None
     ):
         article.published_at = datetime.utcnow()
@@ -108,7 +108,7 @@ def update_article_status(
         raise HTTPException(404, "Artículo no encontrado")
 
     article.status = payload.status
-    if payload.status == "published" and article.published_at is None:
+    if payload.status == "Aprobado" and article.published_at is None:
         article.published_at = datetime.utcnow()
 
     article.updated_at = datetime.utcnow()

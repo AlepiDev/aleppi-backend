@@ -25,7 +25,7 @@ def list_articles(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
 ):
-    base_where = (Article.status == "published")
+    base_where = (Article.status == "Aprobado")
 
     # total_items
     total_items = session.exec(

@@ -55,6 +55,8 @@ async def create_professional(
     state: str = Form(...),
     city: str = Form(...),
     mobile_phone: str = Form(...),
+    professional_status: str = Form("Inactivo"),
+    schedules: str = Form(None),
     photo_file: UploadFile | None = File(None),
     license_file: UploadFile = File(...),
     session: Session = Depends(get_session),
@@ -92,10 +94,29 @@ async def create_professional(
         state=state,
         city=city,
         mobile_phone=mobile_phone,
+        status=professional_status,
     )
     session.add(professional)
     session.commit()
     session.refresh(professional)
+
+    # Create schedules if provided
+    if schedules is not None:
+        try:
+            schedules_data = json.loads(schedules)
+            for schedule_item in schedules_data:
+                new_schedule = ProfessionalSchedule(
+                    professional_id=professional.id,
+                    day=schedule_item.get("day"),
+                    open=schedule_item.get("open"),
+                    close=schedule_item.get("close"),
+                    is_closed=schedule_item.get("is_closed", False)
+                )
+                session.add(new_schedule)
+            session.commit()
+        except json.JSONDecodeError:
+            logger.error("Error parsing schedules JSON")
+
     return professional
 
 
@@ -137,10 +158,12 @@ async def update_professional(
     state: str = Form(...),
     city: str = Form(...),
     mobile_phone: str = Form(...),
+    professional_status: str = Form(None),
     web: str = Form(None),
     facebook: str = Form(None),
     instagram: str = Form(None),
     youtube: str = Form(None),
+    schedules: str = Form(None),
     photo_file: UploadFile | None = File(None),
     license_file: UploadFile | None = File(None),
     session: Session = Depends(get_session),
@@ -158,12 +181,12 @@ async def update_professional(
         user.hashed_password = get_password_hash(password)
     session.add(user)
 
-    if photo_file is not None:
+    if photo_file is not None and photo_file.filename:
         professional.url_photo = await storage_service.upload_file(
             photo_file, "uploads/photos"
         )
 
-    if license_file is not None:
+    if license_file is not None and license_file.filename:
         professional.license_file_path = await storage_service.upload_file(
             license_file, "uploads/licenses"
         )
@@ -180,6 +203,8 @@ async def update_professional(
     professional.state = state
     professional.city = city
     professional.mobile_phone = mobile_phone
+    if professional_status is not None:
+        professional.status = professional_status
     session.add(professional)
 
     # Upsert socials
@@ -197,6 +222,33 @@ async def update_professional(
     socials.instagram = instagram
     socials.youtube = youtube
     session.add(socials)
+
+    # Upsert schedules
+    if schedules is not None:
+        try:
+            schedules_data = json.loads(schedules)
+
+            # Eliminar schedules existentes
+            existing_schedules = session.exec(
+                select(ProfessionalSchedule).where(
+                    ProfessionalSchedule.professional_id == professional_id
+                )
+            ).all()
+            for sch in existing_schedules:
+                session.delete(sch)
+
+            # Crear nuevos schedules
+            for schedule_item in schedules_data:
+                new_schedule = ProfessionalSchedule(
+                    professional_id=professional_id,
+                    day=schedule_item.get("day"),
+                    open=schedule_item.get("open"),
+                    close=schedule_item.get("close"),
+                    is_closed=schedule_item.get("is_closed", False)
+                )
+                session.add(new_schedule)
+        except json.JSONDecodeError:
+            logger.error("Error parsing schedules JSON")
 
     session.commit()
     session.refresh(professional)
@@ -227,7 +279,10 @@ def update_professional_status(
     if not professional:
         raise HTTPException(status_code=404, detail="Profesional no encontrado")
 
-    professional.active = payload.active
+    if payload.active is not None:
+        professional.active = payload.active
+    if payload.status is not None:
+        professional.status = payload.status
     session.add(professional)
     session.commit()
     session.refresh(professional)

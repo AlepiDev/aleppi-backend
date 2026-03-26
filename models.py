@@ -60,6 +60,7 @@ class ProfessionalBase(SQLModel):
     city: str
     mobile_phone: str
     active: bool = False
+    status: str = "Inactivo"
 
 
 class ProfessionalSocials(SQLModel, table=True):
@@ -285,10 +286,19 @@ class ProfessionalAddress(SQLModel, table=True):
     )
 
 
+class ProfessionalStatus(str, Enum):
+    inactivo = "Inactivo"
+    pendiente = "Pendiente"
+    aprobado = "Aprobado"
+    suspendido = "Suspendido"
+    rechazado = "Rechazado"
+
+
 class ArticleStatus(str, Enum):
-    draft = "draft"
-    published = "published"
-    inactive = "inactive"
+    pendiente = "Pendiente"
+    drafted = "Drafted"
+    aprobado = "Aprobado"
+    rechazado = "Rechazado"
 
 
 class CommentStatus(str, Enum):
@@ -307,7 +317,7 @@ class Article(SQLModel, table=True):
     slug: str = Field(index=True, unique=True)
     content: str
 
-    status: ArticleStatus = Field(default=ArticleStatus.draft, index=True)
+    status: ArticleStatus = Field(default=ArticleStatus.drafted, index=True)
 
     published_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
