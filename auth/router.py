@@ -70,6 +70,7 @@ def create_access_token(
     active: bool,
     actor_type: str | None = None,
     actor_id: int | None = None,
+    status: str | None = None,
 ) -> str:
     now = datetime.now()
     payload = {
@@ -81,6 +82,7 @@ def create_access_token(
         # 👇 NUEVO
         "actor_type": actor_type,   # "professional" | "admin" | None
         "actor_id": actor_id,       # professional.id | admin.id | None
+        "status": status,           # Professional status | "Activo" for admin
 
         "jti": str(uuid4()),
         "iat": int(now.timestamp()),
@@ -136,13 +138,21 @@ def login(payload: LoginRequest, session: Session = Depends(get_session)):
 
     actor_type = None
     actor_id = None
+    status = None
+
+    # role=1 => admin
+    if user.role == 1:
+        status = "Activo"
 
     # role=2 => professional
     if user.role == 2:
-        prof_id = session.exec(select(Professional.id).where(Professional.user_id == user.id)).first()
-        actor_type = "professional"
-        actor_id = prof_id
-
+        professional = session.exec(
+            select(Professional).where(Professional.user_id == user.id)
+        ).first()
+        if professional:
+            actor_type = "professional"
+            actor_id = professional.id
+            status = professional.status
 
     access_token = create_access_token(
         user_id=user.id,
@@ -151,6 +161,7 @@ def login(payload: LoginRequest, session: Session = Depends(get_session)):
         active=has_active_subscription(session, user.id),
         actor_type=actor_type,
         actor_id=actor_id,
+        status=status,
     )
     refresh_token = create_refresh_token(user_id=user.id)
 
@@ -260,10 +271,23 @@ def refresh_token(payload: RefreshRequest,
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="Usuario inválido o inactivo")
 
+    actor_type = None
+    actor_id = None
+    status = None
+
+    # role=1 => admin
+    if user.role == 1:
+        status = "Activo"
+
+    # role=2 => professional
     if user.role == 2:
-        prof_id = session.exec(select(Professional.id).where(Professional.user_id == user.id)).first()
-        actor_type = "professional"
-        actor_id = prof_id
+        professional = session.exec(
+            select(Professional).where(Professional.user_id == user.id)
+        ).first()
+        if professional:
+            actor_type = "professional"
+            actor_id = professional.id
+            status = professional.status
 
     access_token = create_access_token(
         user_id=user.id,
@@ -272,6 +296,7 @@ def refresh_token(payload: RefreshRequest,
         active=has_active_subscription(session, user.id),
         actor_type=actor_type,
         actor_id=actor_id,
+        status=status,
     )
     new_refresh = create_refresh_token(user_id=user.id)  # opcional: rotación
 
