@@ -2,7 +2,7 @@ from datetime import datetime, time
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from auth.schemas import UserRead
 
@@ -82,9 +82,9 @@ class ProfessionalRead(BaseModel):
     reviews: List[ProfessionalReviewRead] = []
     address: Optional[str] = None
     socials: Optional[ProfessionalSocialsRead] = None
-    schedule: List[ProfessionalScheduleRead] = []
+    schedule: List[ProfessionalScheduleRead] = Field(default=[], validation_alias="schedules")
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class ProfessionalStatusUpdate(BaseModel):
