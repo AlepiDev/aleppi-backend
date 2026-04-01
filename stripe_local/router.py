@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from database import get_session
-from models import (StripeCustomer, StripeEvent, StripeInvoice,
+from models import (Professional, StripeCustomer, StripeEvent, StripeInvoice,
                     StripeSubscription, User)
 
 logger = logging.getLogger("payments.stripe")
@@ -335,6 +335,18 @@ def _insert_invoice(
     return row
 
 
+def _activate_professional(db: Session, user_id: int) -> None:
+    """Si el profesional está Inactivo, lo pasa a Aprobado al confirmar el pago."""
+    professional = db.exec(
+        select(Professional).where(Professional.user_id == user_id)
+    ).first()
+    if professional and professional.status == "Inactivo":
+        professional.status = "Aprobado"
+        db.add(professional)
+        db.commit()
+        logger.info("Professional user_id=%s activado a Aprobado", user_id)
+
+
 # -----------------------------
 # Webhook (source of truth)
 # -----------------------------
@@ -453,6 +465,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_session)):
                         "No pude retrieve/upsert subscription en checkout.session.completed"
                     )
 
+            _activate_professional(db, user_id)
             return {"status": "ok"}
 
         # -----------------------------------------
@@ -685,6 +698,8 @@ def confirm_payment(payload: ConfirmRequest, db: Session = Depends(get_session))
     ).first()
 
     if already:
+        if user_id := _safe_int(meta.get("user_id")) or _safe_int(s.get("client_reference_id")):
+            _activate_professional(db, user_id)
         return ConfirmResponse(
             ok=True,
             status="active",
@@ -742,8 +757,10 @@ def confirm_payment(payload: ConfirmRequest, db: Session = Depends(get_session))
         current_period_start=_to_dt_from_unix(sub.get("current_period_start")),
         current_period_end=_to_dt_from_unix(sub.get("current_period_end")),
         canceled_at=_to_dt_from_unix(sub.get("canceled_at")),
-        transaction_id=(meta_tx or None),  # si implementaste Opción A
+        transaction_id=(meta_tx or None),
     )
+
+    _activate_professional(db, user_id)
 
     return ConfirmResponse(
         ok=True,

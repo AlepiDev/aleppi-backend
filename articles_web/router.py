@@ -29,7 +29,7 @@ def list_articles(
 
     # total_items
     total_items = session.exec(
-        select(func.count()).select_from(Article).where(base_where)
+        select(func.count()).select_from(Article)
     ).one()
 
     total_pages = max(1, math.ceil(total_items / page_size))
