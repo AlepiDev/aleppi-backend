@@ -163,8 +163,8 @@ async def update_professional(
     facebook: str = Form(None),
     instagram: str = Form(None),
     youtube: str = Form(None),
-    schedules: str = Form(None),
-    photo_file: UploadFile | None = File(None),
+    schedule: str = Form(None),
+    url_photo: UploadFile | None = File(None),
     license_file: UploadFile | None = File(None),
     session: Session = Depends(get_session),
 ):
@@ -181,9 +181,9 @@ async def update_professional(
         user.hashed_password = get_password_hash(password)
     session.add(user)
 
-    if photo_file is not None and photo_file.filename:
+    if url_photo is not None and url_photo.filename:
         professional.url_photo = await storage_service.upload_file(
-            photo_file, "uploads/photos"
+            url_photo, "uploads/photos"
         )
 
     if license_file is not None and license_file.filename:
@@ -224,9 +224,9 @@ async def update_professional(
     session.add(socials)
 
     # Upsert schedules
-    if schedules is not None:
+    if schedule is not None:
         try:
-            schedules_data = json.loads(schedules)
+            schedules_data = json.loads(schedule)
 
             # Eliminar schedules existentes
             existing_schedules = session.exec(
@@ -242,8 +242,8 @@ async def update_professional(
                 new_schedule = ProfessionalSchedule(
                     professional_id=professional_id,
                     day=schedule_item.get("day"),
-                    open=schedule_item.get("open"),
-                    close=schedule_item.get("close"),
+                    open=schedule_item.get("start") or schedule_item.get("open"),
+                    close=schedule_item.get("end") or schedule_item.get("close"),
                     is_closed=schedule_item.get("is_closed", False)
                 )
                 session.add(new_schedule)

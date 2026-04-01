@@ -25,7 +25,7 @@ def list_articles(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
 ):
-    base_where = (Article.status == "Aprobado")
+    #base_where = (Article.status == "Aprobado")
 
     # total_items
     total_items = session.exec(
@@ -38,7 +38,7 @@ def list_articles(
     # items paginados
     stmt = (
         select(Article)
-        .where(base_where)
+        #.where(base_where)
         .order_by(Article.created_at.desc())
         .offset(offset)
         .limit(page_size)
@@ -52,5 +52,3 @@ def list_articles(
         "page_size": page_size,
         "total_items": total_items,
     }
-
-

@@ -64,6 +64,7 @@ class ProfessionalRead(BaseModel):
     first_name: str
     last_name: str
     specialty: str
+    short_description: Optional[str] = None
     description: Optional[str]
     skills: Optional[str]  # Comma-separated skills
     url_photo: Optional[str]
