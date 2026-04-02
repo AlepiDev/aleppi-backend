@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import List
 from uuid import uuid4
 
-from fastapi import (APIRouter, Depends, File, Form, HTTPException, UploadFile,
-                     status)
+from fastapi import (APIRouter, Depends, File, Form, HTTPException, Request,
+                     UploadFile, status)
 from passlib.context import CryptContext
 from sqlalchemy import update
 from sqlalchemy.orm import selectinload
@@ -144,6 +144,7 @@ def get_professional(professional_id: int, session: Session = Depends(get_sessio
 @router.put("/{professional_id}", response_model=ProfessionalRead)
 async def update_professional(
     professional_id: int,
+    request: Request,
     email: str = Form(...),
     password: str = Form(None),
     first_name: str = Form(...),
@@ -164,8 +165,6 @@ async def update_professional(
     instagram: str = Form(None),
     youtube: str = Form(None),
     schedule: str = Form(None),
-    url_photo: UploadFile | None = File(None),
-    license_file: UploadFile | None = File(None),
     session: Session = Depends(get_session),
 ):
     professional = session.get(Professional, professional_id)
@@ -181,12 +180,19 @@ async def update_professional(
         user.hashed_password = get_password_hash(password)
     session.add(user)
 
-    if url_photo is not None and url_photo.filename:
+    # Obtener archivos del form manualmente para manejar casos donde se envían strings
+    form = await request.form()
+    url_photo = form.get("url_photo")
+    license_file = form.get("license_file_path") or form.get("license_file")
+
+    # Solo procesar url_photo si es un archivo válido (UploadFile con filename)
+    if url_photo is not None and isinstance(url_photo, UploadFile) and url_photo.filename:
         professional.url_photo = await storage_service.upload_file(
             url_photo, "uploads/photos"
         )
 
-    if license_file is not None and license_file.filename:
+    # Solo procesar license_file si es un archivo válido (UploadFile con filename)
+    if license_file is not None and isinstance(license_file, UploadFile) and license_file.filename:
         professional.license_file_path = await storage_service.upload_file(
             license_file, "uploads/licenses"
         )
