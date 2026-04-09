@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 
 from database import get_session
 from models import Article, Professional
-from professionals.schemas import PaginatedArticles
+from professionals.schemas import ArticleRead, PaginatedArticles
 
 router = APIRouter(
     prefix="/articles", tags=["articles"]
@@ -52,3 +52,11 @@ def list_articles(
         "page_size": page_size,
         "total_items": total_items,
     }
+
+
+@router.get("/{article_id}", response_model=ArticleRead)
+def get_article(article_id: int, session: Session = Depends(get_session)):
+    article = session.get(Article, article_id)
+    if not article:
+        raise HTTPException(404, "Artículo no encontrado")
+    return article
