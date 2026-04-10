@@ -182,6 +182,7 @@ async def update_professional(
     session.add(user)
 
     if url_photo is not None and url_photo.filename:
+        print(url_photo)
         professional.url_photo = await storage_service.upload_file(
             url_photo, "uploads/photos"
         )
