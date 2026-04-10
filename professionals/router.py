@@ -164,7 +164,7 @@ async def update_professional(
     instagram: str = Form(None),
     youtube: str = Form(None),
     schedule: str = Form(None),
-    photo_file: UploadFile | None = File(None),
+    url_photo: UploadFile | None = File(None),
     license_file: UploadFile | None = File(None),
     session: Session = Depends(get_session),
 ):
@@ -181,9 +181,9 @@ async def update_professional(
         user.hashed_password = get_password_hash(password)
     session.add(user)
 
-    if photo_file is not None and photo_file.filename:
+    if url_photo is not None and url_photo.filename:
         professional.url_photo = await storage_service.upload_file(
-            photo_file, "uploads/photos"
+            url_photo, "uploads/photos"
         )
 
     if license_file is not None and license_file.filename:
