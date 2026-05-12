@@ -51,6 +51,7 @@ class StorageService:
         #if self.storage_type == "s3":
         #    return await self._upload_to_s3(file, folder)
         #elif self.storage_type == "azure":
+
         return await self._upload_to_azure(file, folder)
         #else:
         #   return await self._upload_to_local(file, folder)

@@ -122,10 +122,10 @@ def create_checkout_session(
     _init_stripe()
 
     success_url_base = _get_env(
-        "STRIPE_SUCCESS_URL", "http://localhost:3000/profesionales/membresia/success"
+        "STRIPE_SUCCESS_URL", "https://aleppiweb.vercel.app/profesionales/membresia/success"
     )
     cancel_url = _get_env(
-        "STRIPE_CANCEL_URL", "http://localhost:3000/profesionales/membresia/cancel"
+        "STRIPE_CANCEL_URL", "https://aleppiweb.vercel.app/profesionales/membresia/cancel"
     )
     tx = (payload.transaction_id or "").strip()
 
@@ -336,15 +336,40 @@ def _insert_invoice(
 
 
 def _activate_professional(db: Session, user_id: int) -> None:
-    """Si el profesional está Inactivo, lo pasa a Aprobado al confirmar el pago."""
+    """
+    Actualiza el estatus del profesional al confirmar el pago.
+
+    Reglas:
+    - Inactivo  -> Pendiente
+    - Suspendido -> Aprobado
+    """
     professional = db.exec(
         select(Professional).where(Professional.user_id == user_id)
     ).first()
-    if professional and professional.status == "Inactivo":
-        professional.status = "Aprobado"
+
+    if not professional:
+        return
+
+    status_transitions = {
+        "Inactivo": "Pendiente",
+        "Suspendido": "Aprobado",
+    }
+
+    new_status = status_transitions.get(professional.status)
+
+    if new_status:
+        old_status = professional.status
+        professional.status = new_status
+
         db.add(professional)
         db.commit()
-        logger.info("Professional user_id=%s activado a Aprobado", user_id)
+
+        logger.info(
+            "Professional user_id=%s status cambiado de %s a %s",
+            user_id,
+            old_status,
+            new_status,
+        )
 
 
 # -----------------------------
