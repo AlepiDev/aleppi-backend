@@ -307,6 +307,30 @@ class CommentStatus(str, Enum):
     in_review = "in_review"
 
 
+class Tag(SQLModel, table=True):
+    __tablename__ = "tags"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(index=True, unique=True)
+
+    articles: List["Article"] = Relationship(
+        sa_relationship=relationship(
+            "Article", secondary="article_tag_links", back_populates="tags"
+        )
+    )
+
+
+class ArticleTagLink(SQLModel, table=True):
+    __tablename__ = "article_tag_links"
+
+    article_id: Optional[int] = Field(
+        default=None, foreign_key="articles.id", primary_key=True
+    )
+    tag_id: Optional[int] = Field(
+        default=None, foreign_key="tags.id", primary_key=True
+    )
+
+
 class Article(SQLModel, table=True):
     __tablename__ = "articles"
 
@@ -315,6 +339,7 @@ class Article(SQLModel, table=True):
 
     title: str
     slug: str = Field(index=True, unique=True)
+    header: Optional[str] = None  # base64-encoded image
     content: str
 
     status: ArticleStatus = Field(default=ArticleStatus.drafted, index=True)
@@ -334,6 +359,11 @@ class Article(SQLModel, table=True):
     )
     reviews: List["ArticleReview"] = Relationship(
         sa_relationship=relationship("ArticleReview", back_populates="article")
+    )
+    tags: List["Tag"] = Relationship(
+        sa_relationship=relationship(
+            "Tag", secondary="article_tag_links", back_populates="articles"
+        )
     )
 
 

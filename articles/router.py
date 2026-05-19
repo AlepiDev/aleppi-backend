@@ -8,12 +8,25 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from database import get_session
-from models import Article, Professional
+from models import Article, Professional, Tag
 from professionals.schemas import ArticleCreate, ArticleRead, ArticleStatusUpdate, ArticleUpdate
 
 router = APIRouter(
     prefix="/professionals/{professional_id}/articles", tags=["articles"]
 )
+
+
+def _resolve_tags(session: Session, tag_names: list[str]) -> list[Tag]:
+    """Return Tag objects for the given names, creating them if they don't exist."""
+    tags = []
+    for name in tag_names:
+        tag = session.exec(select(Tag).where(Tag.name == name)).first()
+        if not tag:
+            tag = Tag(name=name)
+            session.add(tag)
+            session.flush()
+        tags.append(tag)
+    return tags
 
 
 @router.post("/", response_model=ArticleRead, status_code=201)
@@ -29,13 +42,15 @@ def create_article(
     if exists:
         raise HTTPException(400, "slug ya existe")
 
-    article = Article(professional_id=professional_id, **payload.model_dump())
+    data = payload.model_dump(exclude={"tags"})
+    article = Article(professional_id=professional_id, **data)
     if (
         getattr(article, "status", None) == "Aprobado"
         and getattr(article, "published_at", None) is None
     ):
         article.published_at = datetime.utcnow()
 
+    article.tags = _resolve_tags(session, payload.tags)
     session.add(article)
     session.commit()
     session.refresh(article)
@@ -79,9 +94,12 @@ def update_article(
     if not article or article.professional_id != professional_id:
         raise HTTPException(404, "Artículo no encontrado")
 
-    data = payload.model_dump(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True, exclude={"tags"})
     for k, v in data.items():
         setattr(article, k, v)
+
+    if payload.tags is not None:
+        article.tags = _resolve_tags(session, payload.tags)
 
     if (
         data.get("status") == "Aprobado"

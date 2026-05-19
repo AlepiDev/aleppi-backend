@@ -189,19 +189,29 @@ class CommentStatus(str, Enum):
 class ArticleCreate(BaseModel):
     title: str
     slug: str
+    header: Optional[str] = None  # base64-encoded image
     content: str
     status: ArticleStatus = ArticleStatus.drafted
+    tags: List[str] = []  # tag names
 
 
 class ArticleUpdate(BaseModel):
     title: Optional[str] = None
     slug: Optional[str] = None
+    header: Optional[str] = None  # base64-encoded image
     content: Optional[str] = None
     status: Optional[ArticleStatus] = None
+    tags: Optional[List[str]] = None  # tag names; None = no change, [] = clear all
 
 
 class ArticleStatusUpdate(BaseModel):
     status: ArticleStatus
+
+
+class TagRead(BaseModel):
+    id: int
+    name: str
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ArticleRead(BaseModel):
@@ -209,6 +219,7 @@ class ArticleRead(BaseModel):
     professional_id: int
     title: str
     slug: str
+    header: Optional[str] = None  # base64-encoded image
     content: str
     status: ArticleStatus
     published_at: Optional[datetime] = None
@@ -216,6 +227,7 @@ class ArticleRead(BaseModel):
     updated_at: datetime
     reviews_count: int
     rating_avg: float
+    tags: List[TagRead] = []
     model_config = ConfigDict(from_attributes=True)
 
 
