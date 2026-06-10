@@ -27,3 +27,22 @@ class PaymentRow(BaseModel):
 class PaymentsListResponse(BaseModel):
     items: list[PaymentRow]
     total: int
+
+
+class PaymentDetail(BaseModel):
+    invoice_id: UUID
+    professional_id: Optional[int] = None
+    professional_name: Optional[str] = None
+    customer_id: Optional[str] = None
+
+    amount: float
+    currency: Optional[str] = None
+    status: str
+    failure_reason: Optional[str] = None
+
+    stripe_invoice_id: Optional[str] = None
+    stripe_subscription_id: Optional[str] = None
+    transaction_id: Optional[str] = None
+
+    created_at: Optional[datetime] = None
+    paid_at: Optional[datetime] = None

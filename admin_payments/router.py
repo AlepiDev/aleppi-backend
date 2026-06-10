@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 from typing import Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
@@ -12,7 +13,7 @@ from auth.deps import get_current_admin
 from database import get_session
 from models import Professional, StripeInvoice, StripeSubscription, User
 
-from .schemas import PaymentRow, PaymentsListResponse
+from .schemas import PaymentDetail, PaymentRow, PaymentsListResponse
 
 router = APIRouter(prefix="/admin/payments", tags=["admin-payments"])
 
@@ -21,24 +22,15 @@ def _money_from_cents(cents: Optional[int]) -> float:
     return float((cents or 0) / 100)
 
 
-@router.get("/history", response_model=PaymentsListResponse)
-def payments_history(
-    q: Optional[str] = None,
-    status: Optional[str] = Query(
-        default=None, description="Ej: paid, open, uncollectible, void, draft"
-    ),
-    from_date: Optional[date] = None,
-    to_date: Optional[date] = None,
-    limit: int = 50,
-    offset: int = 0,
-    session: Session = Depends(get_session),
-    # _: User = Depends(get_current_admin),
-) -> PaymentsListResponse:
-    """
-    Historial basado en StripeInvoice.
-    Une invoice -> subscription (opcional) -> user_id -> professional para nombre.
-    """
-
+def _build_payments_query(
+    q: Optional[str],
+    status: Optional[str],
+    from_date: Optional[date],
+    to_date: Optional[date],
+    customer_id: Optional[str],
+    professional_id: Optional[int],
+    subscription_id: Optional[str],
+):
     stmt = (
         select(
             StripeInvoice,
@@ -48,14 +40,12 @@ def payments_history(
             StripeSubscription.stripe_subscription_id,
             StripeSubscription.transaction_id,
         )
-        # link invoice -> subscription (si existe)
         .join(
             StripeSubscription,
             StripeSubscription.stripe_subscription_id
             == StripeInvoice.stripe_subscription_id,
             isouter=True,
         )
-        # link subscription.user_id -> professional.user_id
         .join(
             Professional,
             Professional.user_id == StripeSubscription.user_id,
@@ -63,7 +53,6 @@ def payments_history(
         )
     )
 
-    # Filtros de fecha usando paid_at si existe; si no, usa created_at
     if from_date or to_date:
         start_dt = datetime.combine(
             from_date or date.today() - timedelta(days=3650), datetime.min.time()
@@ -78,11 +67,44 @@ def payments_history(
     if status:
         stmt = stmt.where(StripeInvoice.status == status)
 
+    if customer_id:
+        stmt = stmt.where(StripeInvoice.stripe_customer_id == customer_id)
+
+    if subscription_id:
+        stmt = stmt.where(StripeInvoice.stripe_subscription_id == subscription_id)
+
+    if professional_id:
+        stmt = stmt.where(Professional.id == professional_id)
+
     if q:
         like = f"%{q.strip()}%"
         stmt = stmt.where(
-            (Professional.first_name.ilike(like)) | (Professional.last_name.ilike(like))
+            (Professional.first_name.ilike(like))
+            | (Professional.last_name.ilike(like))
+            | (StripeInvoice.stripe_invoice_id.ilike(like))
         )
+
+    return stmt
+
+
+@router.get("/", response_model=PaymentsListResponse)
+def list_payments(
+    q: Optional[str] = None,
+    status: Optional[str] = Query(
+        default=None, description="Ej: paid, open, uncollectible, void, draft"
+    ),
+    from_date: Optional[date] = None,
+    to_date: Optional[date] = None,
+    customer_id: Optional[str] = None,
+    professional_id: Optional[int] = None,
+    subscription_id: Optional[str] = None,
+    sort: Optional[str] = Query(default="created_at:desc", description="Ej: created_at:desc"),
+    limit: int = 50,
+    offset: int = 0,
+    session: Session = Depends(get_session),
+    # _: User = Depends(get_current_admin),
+) -> PaymentsListResponse:
+    stmt = _build_payments_query(q, status, from_date, to_date, customer_id, professional_id, subscription_id)
 
     total_stmt = select(func.count()).select_from(stmt.subquery())
     total = int(session.exec(total_stmt).one())
@@ -90,29 +112,80 @@ def payments_history(
     stmt = stmt.order_by(StripeInvoice.created_at.desc()).offset(offset).limit(limit)
     rows = session.exec(stmt).all()
 
-    items: list[PaymentRow] = []
-    for inv, prof_id, first, last, sub_id, tx_id in rows:
-        prof_name = (
-            " ".join([p for p in [first, last] if p])
-            if first or last
-            else "(Sin profesional)"
-        )
-        items.append(
-            PaymentRow(
-                invoice_id=inv.id,
-                professional_id=prof_id or 0,
-                professional_name=prof_name,
-                amount=_money_from_cents(inv.amount_paid or inv.amount_due),
-                currency=inv.currency,
-                date=inv.paid_at or inv.created_at,
-                status=inv.status or "unknown",
-                transaction_id=tx_id,
-                stripe_invoice_id=inv.stripe_invoice_id,
-                stripe_subscription_id=sub_id,
-            )
-        )
-
+    items = _rows_to_payment_list(rows)
     return PaymentsListResponse(items=items, total=total)
+
+
+@router.get("/history", response_model=PaymentsListResponse)
+def payments_history(
+    q: Optional[str] = None,
+    status: Optional[str] = Query(default=None),
+    from_date: Optional[date] = None,
+    to_date: Optional[date] = None,
+    limit: int = 50,
+    offset: int = 0,
+    session: Session = Depends(get_session),
+    # _: User = Depends(get_current_admin),
+) -> PaymentsListResponse:
+    stmt = _build_payments_query(q, status, from_date, to_date, None, None, None)
+
+    total_stmt = select(func.count()).select_from(stmt.subquery())
+    total = int(session.exec(total_stmt).one())
+
+    stmt = stmt.order_by(StripeInvoice.created_at.desc()).offset(offset).limit(limit)
+    rows = session.exec(stmt).all()
+
+    return PaymentsListResponse(items=_rows_to_payment_list(rows), total=total)
+
+
+@router.get("/{payment_id}", response_model=PaymentDetail)
+def get_payment_detail(
+    payment_id: UUID,
+    session: Session = Depends(get_session),
+    # _: User = Depends(get_current_admin),
+) -> PaymentDetail:
+    inv = session.get(StripeInvoice, payment_id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Pago no encontrado")
+
+    prof_id = None
+    prof_name = None
+    tx_id = None
+
+    sub = session.exec(
+        select(StripeSubscription).where(
+            StripeSubscription.stripe_subscription_id == inv.stripe_subscription_id
+        )
+    ).first()
+
+    if sub:
+        tx_id = sub.transaction_id
+        prof = session.exec(
+            select(Professional).where(Professional.user_id == sub.user_id)
+        ).first()
+        if prof:
+            prof_id = prof.id
+            prof_name = " ".join([p for p in [prof.first_name, prof.last_name] if p]) or None
+
+    failure_reason = None
+    if inv.raw_json:
+        failure_reason = inv.raw_json.get("failure_reason") or inv.raw_json.get("failure_message")
+
+    return PaymentDetail(
+        invoice_id=inv.id,
+        professional_id=prof_id,
+        professional_name=prof_name,
+        customer_id=inv.stripe_customer_id,
+        amount=_money_from_cents(inv.amount_paid or inv.amount_due),
+        currency=inv.currency,
+        status=inv.status or "unknown",
+        failure_reason=failure_reason,
+        stripe_invoice_id=inv.stripe_invoice_id,
+        stripe_subscription_id=inv.stripe_subscription_id,
+        transaction_id=tx_id,
+        created_at=inv.created_at,
+        paid_at=inv.paid_at,
+    )
 
 
 @router.post("/invoices/{invoice_id}/confirm", response_model=PaymentRow)
@@ -136,7 +209,6 @@ def confirm_payment(
     session.commit()
     session.refresh(inv)
 
-    # Respuesta simple sin join (puedes reusar el join si quieres)
     return PaymentRow(
         invoice_id=inv.id,
         professional_id=0,
@@ -149,3 +221,26 @@ def confirm_payment(
         stripe_invoice_id=inv.stripe_invoice_id,
         stripe_subscription_id=inv.stripe_subscription_id,
     )
+
+
+def _rows_to_payment_list(rows) -> list[PaymentRow]:
+    items: list[PaymentRow] = []
+    for inv, prof_id, first, last, sub_id, tx_id in rows:
+        prof_name = (
+            " ".join([p for p in [first, last] if p]) if first or last else "(Sin profesional)"
+        )
+        items.append(
+            PaymentRow(
+                invoice_id=inv.id,
+                professional_id=prof_id or 0,
+                professional_name=prof_name,
+                amount=_money_from_cents(inv.amount_paid or inv.amount_due),
+                currency=inv.currency,
+                date=inv.paid_at or inv.created_at,
+                status=inv.status or "unknown",
+                transaction_id=tx_id,
+                stripe_invoice_id=inv.stripe_invoice_id,
+                stripe_subscription_id=sub_id,
+            )
+        )
+    return items

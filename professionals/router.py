@@ -18,7 +18,8 @@ from sqlmodel import Session, select
 from database import get_session
 from models import (Professional, ProfessionalAddress, ProfessionalSchedule,
                     ProfessionalSocials, User)
-from professionals.schemas import (ProfessionalAddressCreate,
+from professionals.schemas import (ProfessionalActiveUpdate,
+                                   ProfessionalAddressCreate,
                                    ProfessionalAddressRead,
                                    ProfessionalAddressUpdate, ProfessionalRead,
                                    ProfessionalScheduleCreate,
@@ -268,6 +269,24 @@ def delete_professional(professional_id: int, session: Session = Depends(get_ses
     session.delete(professional)
     session.commit()
     return
+
+
+@router.patch("/", response_model=ProfessionalRead)
+def update_professional_active(
+    payload: ProfessionalActiveUpdate,
+    session: Session = Depends(get_session),
+):
+    professional = session.get(Professional, payload.id)
+    if not professional:
+        raise HTTPException(status_code=404, detail="Profesional no encontrado")
+
+    professional.active = payload.active
+    if payload.status is not None:
+        professional.status = payload.status
+    session.add(professional)
+    session.commit()
+    session.refresh(professional)
+    return professional
 
 
 @router.patch("/{professional_id}/status", response_model=ProfessionalRead)

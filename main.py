@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 
 from admin.router import router as admin_users_router
+from admin_memberships.router import router as admin_memberships_router
 from admin_payments.router import router as admin_payment_router
 from admin_professionals.router import router as admin_pf_router
 from article_comments.router import router as article_comments_router
@@ -29,6 +30,7 @@ app.include_router(stripe_router)
 app.include_router(admin_dashboard_router)
 app.include_router(admin_pf_router)
 app.include_router(admin_payment_router)
+app.include_router(admin_memberships_router)
 app.include_router(articles_router)
 app.include_router(article_reviews_router)
 app.include_router(me_settings_router)

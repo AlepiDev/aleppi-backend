@@ -24,6 +24,9 @@ class User(UserBase, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     hashed_password: str
+    first_name: Optional[str] = Field(default=None)
+    last_name: Optional[str] = Field(default=None)
+    admin_role: Optional[str] = Field(default=None)  # admin, super_admin, editor, soporte
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

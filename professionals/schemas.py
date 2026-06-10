@@ -92,6 +92,12 @@ class ProfessionalStatusUpdate(BaseModel):
     status: Optional[str] = None
 
 
+class ProfessionalActiveUpdate(BaseModel):
+    id: int
+    active: bool
+    status: Optional[str] = None
+
+
 class ProfessionalSocialsUpsert(BaseModel):
     web: Optional[str] = None
     facebook: Optional[str] = None
