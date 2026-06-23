@@ -8,11 +8,12 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlmodel import Session, select
 
+from auth.deps import get_current_user
 from database import get_session
 from models import StripeSubscription, User,Professional
 
-from .schemas import (ForgotPasswordRequest, LoginRequest, RefreshRequest,
-                      ResetPasswordRequest, Token)
+from .schemas import (ChangePasswordRequest, ForgotPasswordRequest, LoginRequest,
+                      RefreshRequest, ResetPasswordRequest, Token)
 
 SECRET_KEY = "CAMBIA_ESTA_CLAVE_SUPER_SECRETA"
 ALGORITHM = "HS256"
@@ -245,6 +246,35 @@ def reset_password(
     session.commit()
 
     return {"detail": "Contraseña actualizada correctamente"}
+
+@router.post("/password/change")
+def change_password(
+    payload: ChangePasswordRequest,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    # 1) Verificar contraseña actual
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La contraseña actual es incorrecta",
+        )
+
+    # 2) Evitar reutilizar la misma contraseña
+    if verify_password(payload.new_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La nueva contraseña debe ser distinta a la actual",
+        )
+
+    # 3) Actualizar password
+    current_user.hashed_password = get_password_hash(payload.new_password)
+    current_user.updated_at = datetime.utcnow()
+    session.add(current_user)
+    session.commit()
+
+    return {"detail": "Contraseña actualizada correctamente"}
+
 
 @router.post("/refresh", response_model=Token)
 def refresh_token(payload: RefreshRequest, 
