@@ -154,6 +154,24 @@ class Professional(ProfessionalBase, table=True):
         sa_relationship=relationship("Article", back_populates="professional")
     )
 
+    rejections: List["ProfessionalRejection"] = Relationship(
+        sa_relationship=relationship(
+            "ProfessionalRejection",
+            back_populates="professional",
+            order_by="ProfessionalRejection.created_at.desc()",
+            cascade="all, delete-orphan",
+        )
+    )
+
+    @property
+    def rejection_reason(self) -> Optional[str]:
+        """Último motivo de rechazo; sólo se muestra si está Rechazado."""
+        if self.status != ProfessionalStatus.rechazado.value:
+            return None
+        if not self.rejections:
+            return None
+        return self.rejections[0].reason
+
 
 # -------------------------
 # Base mixins
@@ -289,6 +307,23 @@ class ProfessionalAddress(SQLModel, table=True):
     )
 
 
+class ProfessionalRejection(SQLModel, table=True):
+    __tablename__ = "professional_rejections"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    professional_id: int = Field(foreign_key="professionals.id", index=True)
+    reviewed_by: Optional[int] = Field(
+        default=None, foreign_key="users.id", index=True
+    )
+
+    reason: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    professional: "Professional" = Relationship(
+        sa_relationship=relationship("Professional", back_populates="rejections")
+    )
+
+
 class ProfessionalStatus(str, Enum):
     inactivo = "Inactivo"
     pendiente = "Pendiente"
@@ -368,6 +403,23 @@ class Article(SQLModel, table=True):
             "Tag", secondary="article_tag_links", back_populates="articles"
         )
     )
+    rejections: List["ArticleRejection"] = Relationship(
+        sa_relationship=relationship(
+            "ArticleRejection",
+            back_populates="article",
+            order_by="ArticleRejection.created_at.desc()",
+            cascade="all, delete-orphan",
+        )
+    )
+
+    @property
+    def rejection_reason(self) -> Optional[str]:
+        """Último motivo de rechazo; sólo se muestra si el artículo está rechazado."""
+        if self.status != ArticleStatus.rechazado:
+            return None
+        if not self.rejections:
+            return None
+        return self.rejections[0].reason
 
 
 class ArticleComment(SQLModel, table=True):
@@ -401,6 +453,23 @@ class ArticleReview(SQLModel, table=True):
 
     article: "Article" = Relationship(
         sa_relationship=relationship("Article", back_populates="reviews")
+    )
+
+
+class ArticleRejection(SQLModel, table=True):
+    __tablename__ = "article_rejections"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    article_id: int = Field(foreign_key="articles.id", index=True)
+    reviewed_by: Optional[int] = Field(
+        default=None, foreign_key="users.id", index=True
+    )
+
+    reason: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    article: "Article" = Relationship(
+        sa_relationship=relationship("Article", back_populates="rejections")
     )
 
 

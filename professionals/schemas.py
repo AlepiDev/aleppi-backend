@@ -76,6 +76,7 @@ class ProfessionalRead(BaseModel):
     city: str
     mobile_phone: str
     status: str
+    rejection_reason: Optional[str] = None  # motivo del último rechazo
     user: UserRead
 
     rating: Optional[float] = None
@@ -90,6 +91,10 @@ class ProfessionalRead(BaseModel):
 class ProfessionalStatusUpdate(BaseModel):
     active: Optional[bool] = None
     status: Optional[str] = None
+
+
+class ProfessionalRejectRequest(BaseModel):
+    reason: str = Field(..., min_length=1, description="Motivo del rechazo")
 
 
 class ProfessionalActiveUpdate(BaseModel):
@@ -214,6 +219,10 @@ class ArticleStatusUpdate(BaseModel):
     status: ArticleStatus
 
 
+class ArticleRejectRequest(BaseModel):
+    reason: str = Field(..., min_length=1, description="Motivo del rechazo")
+
+
 class TagRead(BaseModel):
     id: int
     name: str
@@ -233,6 +242,7 @@ class ArticleRead(BaseModel):
     updated_at: datetime
     reviews_count: int
     rating_avg: float
+    rejection_reason: Optional[str] = None  # motivo del último rechazo
     tags: List[TagRead] = []
     model_config = ConfigDict(from_attributes=True)
 

@@ -16,12 +16,13 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from database import get_session
-from models import (Professional, ProfessionalAddress, ProfessionalSchedule,
-                    ProfessionalSocials, User)
+from models import (Professional, ProfessionalAddress, ProfessionalRejection,
+                    ProfessionalSchedule, ProfessionalSocials, User)
 from professionals.schemas import (ProfessionalActiveUpdate,
                                    ProfessionalAddressCreate,
                                    ProfessionalAddressRead,
                                    ProfessionalAddressUpdate, ProfessionalRead,
+                                   ProfessionalRejectRequest,
                                    ProfessionalScheduleCreate,
                                    ProfessionalScheduleRead,
                                    ProfessionalScheduleUpdate,
@@ -304,6 +305,31 @@ def update_professional_status(
     if payload.status is not None:
         professional.status = payload.status
     session.add(professional)
+    session.commit()
+    session.refresh(professional)
+    return professional
+
+
+@router.patch("/{professional_id}/reject", response_model=ProfessionalRead)
+def reject_professional(
+    professional_id: int,
+    payload: ProfessionalRejectRequest,
+    session: Session = Depends(get_session),
+):
+    professional = session.get(Professional, professional_id)
+    if not professional:
+        raise HTTPException(status_code=404, detail="Profesional no encontrado")
+
+    professional.status = "Rechazado"
+    professional.active = False
+
+    rejection = ProfessionalRejection(
+        professional_id=professional.id,
+        reason=payload.reason.strip(),
+    )
+
+    session.add(professional)
+    session.add(rejection)
     session.commit()
     session.refresh(professional)
     return professional

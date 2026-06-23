@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
+from sqlalchemy.orm import aliased
 from sqlmodel import Session, select
 
 from auth.deps import get_current_admin
@@ -77,6 +78,45 @@ def list_memberships(
     total = int(session.exec(total_stmt).one())
 
     stmt = stmt.order_by(StripeSubscription.current_period_end.desc()).offset(offset).limit(limit)
+    rows = session.exec(stmt).all()
+
+    items = [_sub_to_read(sub, prof) for sub, prof in rows]
+    return MembershipsListResponse(items=items, total=total)
+
+
+@router.get("/memberships/last-by-user", response_model=MembershipsListResponse)
+def list_last_subscription_per_user(
+    limit: int = 50,
+    offset: int = 0,
+    session: Session = Depends(get_session),
+    # _: User = Depends(get_current_admin),
+):
+    """Última suscripción de cada usuario, sin importar el status."""
+    # DISTINCT ON (user_id) ordenado por fecha de creación desc => la más reciente.
+    latest = (
+        select(StripeSubscription)
+        .distinct(StripeSubscription.user_id)
+        .order_by(
+            StripeSubscription.user_id,
+            StripeSubscription.created_at.desc(),
+        )
+        .subquery()
+    )
+    latest_sub = aliased(StripeSubscription, latest)
+
+    total = int(session.exec(select(func.count()).select_from(latest)).one())
+
+    stmt = (
+        select(latest_sub, Professional)
+        .join(
+            Professional,
+            Professional.user_id == latest_sub.user_id,
+            isouter=True,
+        )
+        .order_by(latest_sub.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
     rows = session.exec(stmt).all()
 
     items = [_sub_to_read(sub, prof) for sub, prof in rows]

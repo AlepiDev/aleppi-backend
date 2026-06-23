@@ -8,8 +8,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from database import get_session
-from models import Article, Professional, Tag
-from professionals.schemas import ArticleCreate, ArticleRead, ArticleStatusUpdate, ArticleUpdate
+from models import Article, ArticleRejection, Professional, Tag
+from professionals.schemas import (
+    ArticleCreate,
+    ArticleRead,
+    ArticleRejectRequest,
+    ArticleStatusUpdate,
+    ArticleUpdate,
+)
 
 router = APIRouter(
     prefix="/professionals/{professional_id}/articles", tags=["articles"]
@@ -131,6 +137,33 @@ def update_article_status(
 
     article.updated_at = datetime.utcnow()
     session.add(article)
+    session.commit()
+    session.refresh(article)
+    return article
+
+
+@router.patch("/{article_id}/reject", response_model=ArticleRead)
+def reject_article(
+    professional_id: int,
+    article_id: int,
+    payload: ArticleRejectRequest,
+    session: Session = Depends(get_session),
+):
+    article = session.get(Article, article_id)
+    if not article or article.professional_id != professional_id:
+        raise HTTPException(404, "Artículo no encontrado")
+
+    article.status = "Rechazado"
+    article.published_at = None
+    article.updated_at = datetime.utcnow()
+
+    rejection = ArticleRejection(
+        article_id=article.id,
+        reason=payload.reason.strip(),
+    )
+
+    session.add(article)
+    session.add(rejection)
     session.commit()
     session.refresh(article)
     return article
