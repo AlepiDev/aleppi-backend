@@ -11,9 +11,20 @@ from sqlmodel import Session, select
 
 from auth.deps import get_current_admin
 from database import get_session
-from models import Professional, StripeInvoice, StripeSubscription, User
+from models import (
+    Professional,
+    StripeCustomer,
+    StripeInvoice,
+    StripeSubscription,
+    User,
+)
 
-from .schemas import PaymentDetail, PaymentRow, PaymentsListResponse
+from .schemas import (
+    PaymentDetail,
+    PaymentRow,
+    PaymentsListResponse,
+    UserPaymentsHistoryResponse,
+)
 
 router = APIRouter(prefix="/admin/payments", tags=["admin-payments"])
 
@@ -116,9 +127,9 @@ def list_payments(
     return PaymentsListResponse(items=items, total=total)
 
 
-@router.get("/history", response_model=PaymentsListResponse)
+@router.get("/history", response_model=UserPaymentsHistoryResponse)
 def payments_history(
-    q: Optional[str] = None,
+    user_id: int = Query(..., description="ID del usuario del que se obtiene el historial"),
     status: Optional[str] = Query(default=None),
     from_date: Optional[date] = None,
     to_date: Optional[date] = None,
@@ -126,16 +137,78 @@ def payments_history(
     offset: int = 0,
     session: Session = Depends(get_session),
     # _: User = Depends(get_current_admin),
-) -> PaymentsListResponse:
-    stmt = _build_payments_query(q, status, from_date, to_date, None, None, None)
+) -> UserPaymentsHistoryResponse:
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    customer = session.exec(
+        select(StripeCustomer).where(StripeCustomer.user_id == user_id)
+    ).first()
+    customer_id = customer.stripe_customer_id if customer else None
+
+    prof = session.exec(
+        select(Professional).where(Professional.user_id == user_id)
+    ).first()
+    professional_id = prof.id if prof else None
+    professional_name = (
+        " ".join([p for p in [prof.first_name, prof.last_name] if p]) or None
+        if prof
+        else None
+    )
+
+    email = (customer.email if customer and customer.email else None) or user.email
+
+    # Sin customer de Stripe el usuario no tiene pagos registrados.
+    if not customer_id:
+        return UserPaymentsHistoryResponse(
+            user_id=user_id,
+            professional_id=professional_id,
+            professional_name=professional_name,
+            email=email,
+            customer_id=None,
+            payments_count=0,
+            total_paid=0.0,
+            currency=None,
+            items=[],
+            total=0,
+        )
+
+    stmt = _build_payments_query(
+        None, status, from_date, to_date, customer_id, None, None
+    )
 
     total_stmt = select(func.count()).select_from(stmt.subquery())
     total = int(session.exec(total_stmt).one())
 
+    sum_stmt = select(
+        func.coalesce(
+            func.sum(
+                func.coalesce(StripeInvoice.amount_paid, StripeInvoice.amount_due)
+            ),
+            0,
+        )
+    ).select_from(stmt.subquery())
+    total_paid = _money_from_cents(int(session.exec(sum_stmt).one()))
+
     stmt = stmt.order_by(StripeInvoice.created_at.desc()).offset(offset).limit(limit)
     rows = session.exec(stmt).all()
+    items = _rows_to_payment_list(rows)
 
-    return PaymentsListResponse(items=_rows_to_payment_list(rows), total=total)
+    currency = next((i.currency for i in items if i.currency), None)
+
+    return UserPaymentsHistoryResponse(
+        user_id=user_id,
+        professional_id=professional_id,
+        professional_name=professional_name,
+        email=email,
+        customer_id=customer_id,
+        payments_count=total,
+        total_paid=total_paid,
+        currency=currency,
+        items=items,
+        total=total,
+    )
 
 
 @router.get("/{payment_id}", response_model=PaymentDetail)

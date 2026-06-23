@@ -29,6 +29,21 @@ class PaymentsListResponse(BaseModel):
     total: int
 
 
+class UserPaymentsHistoryResponse(BaseModel):
+    user_id: int
+    professional_id: Optional[int] = None
+    professional_name: Optional[str] = None
+    email: Optional[str] = None
+    customer_id: Optional[str] = None
+
+    payments_count: int
+    total_paid: float = Field(..., description="Suma de pagos en moneda (ej. MXN)")
+    currency: Optional[str] = None
+
+    items: list[PaymentRow]
+    total: int
+
+
 class PaymentDetail(BaseModel):
     invoice_id: UUID
     professional_id: Optional[int] = None
