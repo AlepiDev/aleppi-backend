@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Optional
 from uuid import uuid4
 
 from fastapi import (APIRouter, Depends, File, Form, HTTPException,
@@ -44,6 +44,29 @@ PREMIUM_PLAN_NAME = "Suscripcion Premium"
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
+
+
+def _price_to_plan_name(session: Session) -> Dict[str, str]:
+    """Mapa {price_id -> nombre de plan} desde el catálogo `subscriptions`."""
+    rows = session.exec(
+        select(Subscription.price_id, Subscription.name).where(
+            Subscription.price_id.is_not(None)
+        )
+    ).all()
+    return {price_id: name for price_id, name in rows}
+
+
+def _to_professional_read(
+    prof: Professional, price_to_name: Dict[str, str]
+) -> ProfessionalRead:
+    """Serializa un profesional agregando el nombre de su suscripción activa."""
+    read = ProfessionalRead.model_validate(prof)
+    subs = getattr(prof.user, "stripe_subscriptions", None) or []
+    for sub in subs:
+        if sub.status == "active" and sub.price_id in price_to_name:
+            read.subscription = price_to_name[sub.price_id]
+            break
+    return read
 
 
 @router.post("/", response_model=ProfessionalRead, status_code=status.HTTP_201_CREATED)
@@ -153,7 +176,8 @@ def list_professionals(session: Session = Depends(get_session)):
 
     professionals = session.exec(stmt).all()
     logger.info("professionals=%s", len(professionals))
-    return professionals
+    price_to_name = _price_to_plan_name(session)
+    return [_to_professional_read(p, price_to_name) for p in professionals]
 
 
 @router.get("/{professional_id}", response_model=ProfessionalRead)
@@ -166,7 +190,7 @@ def get_professional(professional_id: int, session: Session = Depends(get_sessio
     professional = session.exec(stmt).first()
     if not professional:
         raise HTTPException(status_code=404, detail="Profesional no encontrado")
-    return professional
+    return _to_professional_read(professional, _price_to_plan_name(session))
 
 
 @router.put("/{professional_id}", response_model=ProfessionalRead)

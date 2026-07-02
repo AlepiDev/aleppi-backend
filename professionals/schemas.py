@@ -77,6 +77,7 @@ class ProfessionalRead(BaseModel):
     mobile_phone: str
     status: str
     rejection_reason: Optional[str] = None  # motivo del último rechazo
+    subscription: Optional[str] = None  # nombre del plan de la suscripción activa
     user: UserRead
 
     rating: Optional[float] = None
