@@ -1,6 +1,10 @@
 # main.py
+import time
+
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+
+from utils.logging import get_logger, setup_logging
 
 from admin.router import router as admin_users_router
 from admin_memberships.router import router as admin_memberships_router
@@ -17,11 +21,29 @@ from stripe_local.router import router as stripe_router
 from users.router import router as me_settings_router
 from articles_web.router import router as articles_web_router
 load_dotenv()
+setup_logging()
+
+logger = get_logger("aleppi.request")
 
 app = FastAPI(
     title="ALEPPI BACKEND",
     version="0.1.0",
 )
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    logger.info(
+        "%s %s -> %s (%.1f ms)",
+        request.method,
+        request.url.path,
+        response.status_code,
+        elapsed_ms,
+    )
+    return response
 
 app.include_router(auth_router)
 app.include_router(professionals_router)

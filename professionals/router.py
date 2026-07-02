@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import shutil
 from pathlib import Path
 from typing import List
@@ -11,13 +10,14 @@ from uuid import uuid4
 from fastapi import (APIRouter, Depends, File, Form, HTTPException,
                      UploadFile, status)
 from passlib.context import CryptContext
-from sqlalchemy import update
+from sqlalchemy import case, func, update
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from database import get_session
 from models import (Professional, ProfessionalAddress, ProfessionalRejection,
-                    ProfessionalSchedule, ProfessionalSocials, User)
+                    ProfessionalSchedule, ProfessionalSocials, Subscription,
+                    StripeSubscription, User)
 from professionals.schemas import (ProfessionalActiveUpdate,
                                    ProfessionalAddressCreate,
                                    ProfessionalAddressRead,
@@ -30,11 +30,16 @@ from professionals.schemas import (ProfessionalActiveUpdate,
                                    ProfessionalSocialsUpsert,
                                    ProfessionalStatusUpdate)
 from storage import storage_service
+from utils.logging import get_logger
 
-logger = logging.getLogger("app")
+logger = get_logger(__name__)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 router = APIRouter(prefix="/professionals", tags=["professionals"])
+
+# Nombre del plan (en el catálogo `subscriptions`) cuyos suscriptores activos se
+# posicionan primero en el listado de profesionales.
+PREMIUM_PLAN_NAME = "Suscripcion Premium"
 
 
 def get_password_hash(password: str) -> str:
@@ -125,6 +130,27 @@ async def create_professional(
 @router.get("/", response_model=List[ProfessionalRead])
 def list_professionals(session: Session = Depends(get_session)):
     stmt = select(Professional).options(selectinload(Professional.user))
+
+    # Los suscriptores con plan Premium se posicionan primero. Cuando hay varios
+    # Premium, su orden es aleatorio en cada request; el resto queda por id.
+    # Premium = suscripción Stripe activa cuyo price_id corresponde, en el
+    # catálogo `subscriptions`, al plan "Suscripcion Premium".
+    is_premium = (
+        select(StripeSubscription.id)
+        .join(Subscription, Subscription.price_id == StripeSubscription.price_id)
+        .where(
+            StripeSubscription.user_id == Professional.user_id,
+            StripeSubscription.status == "active",
+            Subscription.name == PREMIUM_PLAN_NAME,
+        )
+        .exists()
+    )
+    stmt = stmt.order_by(
+        is_premium.desc(),
+        case((is_premium, func.random()), else_=0.0),
+        Professional.id.asc(),
+    )
+
     professionals = session.exec(stmt).all()
     logger.info("professionals=%s", len(professionals))
     return professionals

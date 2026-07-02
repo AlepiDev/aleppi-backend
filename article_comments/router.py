@@ -11,6 +11,10 @@ from database import get_session
 from models import Article, ArticleComment
 from professionals.schemas import CommentCreate, CommentRead, CommentUpdate
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 router = APIRouter(prefix="/articles/{article_id}/comments", tags=["article-comments"])
 
 

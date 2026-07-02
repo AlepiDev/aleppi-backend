@@ -1,6 +1,5 @@
 # payments/stripe_router.py
 import json
-import logging
 import os
 from datetime import datetime, timezone
 from typing import List, Optional, Set
@@ -14,8 +13,9 @@ from sqlmodel import Session, select
 from database import get_session
 from models import (Professional, StripeCustomer, StripeEvent, StripeInvoice,
                     StripeSubscription, User)
+from utils.logging import get_logger
 
-logger = logging.getLogger("payments.stripe")
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/stripe", tags=["stripe"])
 

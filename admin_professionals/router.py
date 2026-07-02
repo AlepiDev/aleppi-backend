@@ -10,6 +10,10 @@ from auth.deps import get_current_admin
 from database import get_session
 from models import Professional, User
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 router = APIRouter(prefix="/admin/professionals", tags=["admin-professionals"])
 
 

@@ -11,6 +11,10 @@ from auth.router import get_password_hash
 from database import get_session
 from models import User
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 router = APIRouter(prefix="/admins", tags=["admins"])
 
 VALID_ADMIN_ROLES = {"admin", "super_admin", "editor", "soporte"}

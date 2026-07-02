@@ -22,6 +22,10 @@ from models import (
 
 from .schemas import MembershipRead, MembershipsListResponse
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 router = APIRouter(prefix="/admin", tags=["admin-memberships"])
 
 

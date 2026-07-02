@@ -17,6 +17,10 @@ from professionals.schemas import (
     ArticleUpdate,
 )
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 router = APIRouter(
     prefix="/professionals/{professional_id}/articles", tags=["articles"]
 )

@@ -22,6 +22,10 @@ REFRESH_TOKEN_EXPIRE_DAYS = 14
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 

@@ -13,6 +13,10 @@ from database import get_session
 from models import Article, Professional
 from professionals.schemas import ArticleRead, PaginatedArticles
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 router = APIRouter(
     prefix="/articles", tags=["articles"]
 )

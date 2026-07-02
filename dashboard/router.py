@@ -15,6 +15,10 @@ from models import Professional, User
 
 from .schemas import DashboardCards, DashboardSummaryResponse, QuickSummary
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 router = APIRouter(prefix="/admin_dashboard", tags=["admin_dashboard"])
 
 

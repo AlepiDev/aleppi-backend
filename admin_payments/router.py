@@ -26,6 +26,10 @@ from .schemas import (
     UserPaymentsHistoryResponse,
 )
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 router = APIRouter(prefix="/admin/payments", tags=["admin-payments"])
 
 

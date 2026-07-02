@@ -7,6 +7,10 @@ from database import get_session
 from models import UserSettings
 from users.schemas import UserSettingsRead, UserSettingsUpdate
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 router = APIRouter(prefix="/me", tags=["me"])
 
 

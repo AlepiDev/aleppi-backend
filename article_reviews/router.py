@@ -11,6 +11,10 @@ from database import get_session
 from models import Article, ArticleReview, Professional, ProfessionalReview
 from professionals.schemas import ArticleReviewCreate, ArticleReviewRead
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 router = APIRouter(prefix="/articles/{article_id}/reviews", tags=["article-reviews"])
 
 

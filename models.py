@@ -191,6 +191,20 @@ class UpdatedTimestampMixin:
 
 
 # =====================================================
+# Subscription plans (catalog)
+# =====================================================
+class Subscription(SQLModel, table=True):
+    __tablename__ = "subscriptions"
+
+    id: UUID = Field(
+        default_factory=uuid4,
+        sa_column=Column(PG_UUID(as_uuid=True), primary_key=True),
+    )
+    name: str = Field(nullable=False, unique=True)
+    price_id: Optional[str] = Field(default=None, index=True, unique=True)
+
+
+# =====================================================
 # Stripe Events (idempotencia)
 # =====================================================
 class StripeEvent(SQLModel, table=True):
