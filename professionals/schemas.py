@@ -30,12 +30,20 @@ class ProfessionalScheduleRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ProfessionalReviewCreate(BaseModel):
+    name: str
+    rating: int  # 1..5
+    comment: Optional[str] = None
+
+
 class ProfessionalReviewRead(BaseModel):
     id: int
-    user: Optional[str] = None  # si luego quieres nombre, aquí lo llenas
+    professional_id: int
+    name: str
     rating: int
     comment: Optional[str] = None
-    date: datetime
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProfessionalCreate(BaseModel):

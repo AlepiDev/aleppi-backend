@@ -17,6 +17,7 @@ from auth.router import router as auth_router
 from dashboard.router import router as admin_dashboard_router
 from database import create_db_and_tables
 from professionals.router import router as professionals_router
+from professional_reviews.router import router as professional_reviews_router
 from stripe_local.router import router as stripe_router
 from users.router import router as me_settings_router
 from articles_web.router import router as articles_web_router
@@ -47,6 +48,7 @@ async def log_requests(request: Request, call_next):
 
 app.include_router(auth_router)
 app.include_router(professionals_router)
+app.include_router(professional_reviews_router)
 app.include_router(admin_users_router)
 app.include_router(stripe_router)
 app.include_router(admin_dashboard_router)

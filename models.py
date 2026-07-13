@@ -105,8 +105,8 @@ class ProfessionalReview(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     professional_id: int = Field(foreign_key="professionals.id", index=True)
-    user_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
 
+    name: str
     rating: int
     comment: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
