@@ -107,9 +107,14 @@ class ProfessionalReview(SQLModel, table=True):
     professional_id: int = Field(foreign_key="professionals.id", index=True)
 
     name: str
+    email: str
     rating: int
     comment: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    approved: bool = Field(default=False)
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
 
     professional: "Professional" = Relationship(
         sa_relationship=relationship("Professional", back_populates="reviews")

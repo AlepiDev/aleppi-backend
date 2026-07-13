@@ -32,17 +32,38 @@ class ProfessionalScheduleRead(BaseModel):
 
 class ProfessionalReviewCreate(BaseModel):
     name: str
+    email: EmailStr
     rating: int  # 1..5
     comment: Optional[str] = None
 
 
+class ProfessionalReviewApprovalUpdate(BaseModel):
+    approved: bool
+
+
 class ProfessionalReviewRead(BaseModel):
+    """Public shape: what GET /professionals/{id}/reviews returns (approved reviews only)."""
     id: int
     professional_id: int
     name: str
     rating: int
     comment: Optional[str] = None
     created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProfessionalReviewAdminRead(BaseModel):
+    """Full shape: returned from create/update/approve, includes moderation fields."""
+    id: int
+    professional_id: int
+    name: str
+    email: str
+    rating: int
+    comment: Optional[str] = None
+    created_at: datetime
+    approved: bool
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 
