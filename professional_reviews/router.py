@@ -49,7 +49,6 @@ def list_professional_reviews(
     rows = session.exec(
         select(ProfessionalReview)
         .where(ProfessionalReview.professional_id == professional_id)
-        .where(ProfessionalReview.approved == True)  # noqa: E712
         .order_by(ProfessionalReview.created_at.desc())
     ).all()
 
