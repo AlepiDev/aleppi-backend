@@ -48,6 +48,7 @@ class ProfessionalReviewRead(BaseModel):
     name: str
     rating: int
     comment: Optional[str] = None
+    approved: bool
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
