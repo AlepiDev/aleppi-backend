@@ -35,6 +35,9 @@ class ProfessionalReviewCreate(BaseModel):
     email: EmailStr
     rating: int  # 1..5
     comment: Optional[str] = None
+    turnstile_token: str = Field(alias="turnstileToken")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ProfessionalReviewApprovalUpdate(BaseModel):

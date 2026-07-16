@@ -1,6 +1,9 @@
 # routers/professional_reviews.py
 from __future__ import annotations
 
+import os
+
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, select
 
@@ -21,6 +24,8 @@ router = APIRouter(
     prefix="/professionals/{professional_id}/reviews", tags=["professional-reviews"]
 )
 
+TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+
 
 def _get_professional_or_404(session: Session, professional_id: int) -> Professional:
     professional = session.get(Professional, professional_id)
@@ -36,6 +41,25 @@ def _get_review_or_404(
     if not row or row.professional_id != professional_id:
         raise HTTPException(404, "Reseña no encontrada")
     return row
+
+
+def _verify_turnstile(token: str, remote_ip: str | None) -> None:
+    secret = os.getenv("TURNSTILE_SECRET_KEY", "").strip()
+    if not secret:
+        raise HTTPException(500, "Falta TURNSTILE_SECRET_KEY.")
+
+    try:
+        resp = httpx.post(
+            TURNSTILE_VERIFY_URL,
+            data={"secret": secret, "response": token, "remoteip": remote_ip},
+            timeout=10,
+        )
+        result = resp.json()
+    except httpx.HTTPError:
+        raise HTTPException(502, "No se pudo verificar el captcha.")
+
+    if not result.get("success"):
+        raise HTTPException(400, "Verificación de captcha inválida.")
 
 
 @router.get("/")
@@ -66,6 +90,9 @@ def create_professional_review(
     session: Session = Depends(get_session),
 ):
     _get_professional_or_404(session, professional_id)
+    _verify_turnstile(
+        payload.turnstile_token, request.client.host if request.client else None
+    )
 
     if payload.rating < 1 or payload.rating > 5:
         raise HTTPException(400, "rating debe ser 1..5")
