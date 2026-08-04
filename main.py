@@ -69,3 +69,8 @@ def on_startup():
 @app.get("/", tags=["health"])
 def root():
     return {"message": "OK, API corriendo"}
+
+
+@app.get("/health", tags=["health"])
+def health():
+    return {"status": "ok"}
