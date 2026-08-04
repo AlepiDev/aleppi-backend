@@ -1,8 +1,9 @@
 # main.py
+import json
 import time
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 
 from utils.logging import get_logger, setup_logging
 
@@ -31,18 +32,80 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# Claves cuyo valor se enmascara antes de loguear un body (passwords, tokens,
+# datos de tarjeta, etc.). Comparación case-insensitive.
+_SENSITIVE_KEYS = {
+    "password", "token", "secret", "authorization", "card", "cvc", "cvv",
+    "access_token", "refresh_token", "client_secret", "api_key", "apikey",
+    "card_number", "cardnumber", "ssn",
+}
+_MAX_BODY_LOG_LEN = 2000
+
+
+def _mask_sensitive(data):
+    if isinstance(data, dict):
+        return {
+            key: ("***" if key.lower() in _SENSITIVE_KEYS else _mask_sensitive(value))
+            for key, value in data.items()
+        }
+    if isinstance(data, list):
+        return [_mask_sensitive(item) for item in data]
+    return data
+
+
+def _format_body_for_log(raw: bytes, content_type: str) -> str:
+    if not raw:
+        return ""
+    if "application/json" not in (content_type or ""):
+        return f"<{len(raw)} bytes, {content_type or 'unknown content-type'}>"
+    try:
+        parsed = json.loads(raw)
+    except ValueError:
+        return f"<{len(raw)} bytes, invalid json>"
+    text = json.dumps(_mask_sensitive(parsed), ensure_ascii=False)
+    if len(text) > _MAX_BODY_LOG_LEN:
+        text = text[:_MAX_BODY_LOG_LEN] + "...(truncated)"
+    return text
+
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start = time.perf_counter()
+
+    # Los uploads multipart (fotos, licencias) no se leen ni loguean: forzar
+    # la lectura completa del body rompería el streaming a disco de UploadFile.
+    content_type = request.headers.get("content-type", "")
+    if "multipart/form-data" in content_type:
+        req_body_log = "<multipart/form-data, no logueado>"
+    else:
+        req_raw = await request.body()
+        req_body_log = _format_body_for_log(req_raw, content_type)
+
     response = await call_next(request)
+
+    resp_raw = b""
+    async for chunk in response.body_iterator:
+        resp_raw += chunk
+    resp_body_log = _format_body_for_log(resp_raw, response.headers.get("content-type"))
+
+    response_headers = dict(response.headers)
+    response_headers.pop("content-length", None)
+    response = Response(
+        content=resp_raw,
+        status_code=response.status_code,
+        headers=response_headers,
+        media_type=response.media_type,
+    )
+
     elapsed_ms = (time.perf_counter() - start) * 1000
     logger.info(
-        "%s %s -> %s (%.1f ms)",
+        "%s %s -> %s (%.1f ms) | req=%s | res=%s",
         request.method,
         request.url.path,
         response.status_code,
         elapsed_ms,
+        req_body_log,
+        resp_body_log,
     )
     return response
 
