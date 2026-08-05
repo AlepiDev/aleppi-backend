@@ -91,6 +91,29 @@ async def create_professional(
     license_file: UploadFile = File(...),
     session: Session = Depends(get_session),
 ):
+    logger.info(
+        "POST /professionals payload: %s",
+        {
+            "email": email,
+            "first_name": first_name,
+            "last_name": last_name,
+            "specialty": specialty,
+            "short_description": short_description,
+            "description": description,
+            "skills": skills,
+            "years_experience": years_experience,
+            "degree": degree,
+            "license_number": license_number,
+            "state": state,
+            "city": city,
+            "mobile_phone": mobile_phone,
+            "status": professional_status,
+            "schedules": schedules,
+            "photo_file": photo_file.filename if photo_file else None,
+            "license_file": license_file.filename if license_file else None,
+        },
+    )
+
     existing_user = session.exec(select(User).where(User.email == email)).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="El email ya está registrado")
@@ -220,6 +243,35 @@ async def update_professional(
     license_file: UploadFile | None = File(None),
     session: Session = Depends(get_session),
 ):
+    logger.info(
+        "PUT /professionals/%s payload: %s",
+        professional_id,
+        {
+            "email": email,
+            "password_provided": bool(password),
+            "first_name": first_name,
+            "last_name": last_name,
+            "specialty": specialty,
+            "short_description": short_description,
+            "description": description,
+            "skills": skills,
+            "years_experience": years_experience,
+            "degree": degree,
+            "license_number": license_number,
+            "state": state,
+            "city": city,
+            "mobile_phone": mobile_phone,
+            "status": professional_status,
+            "web": web,
+            "facebook": facebook,
+            "instagram": instagram,
+            "youtube": youtube,
+            "schedule": schedule,
+            "url_photo": url_photo.filename if url_photo and url_photo.filename else None,
+            "license_file": license_file.filename if license_file and license_file.filename else None,
+        },
+    )
+
     professional = session.get(Professional, professional_id)
     if not professional:
         raise HTTPException(status_code=404, detail="Profesional no encontrado")

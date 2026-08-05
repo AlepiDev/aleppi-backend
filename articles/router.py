@@ -26,6 +26,16 @@ router = APIRouter(
 )
 
 
+def _loggable_payload(data: dict) -> dict:
+    """Copia del payload apta para log: trunca campos pesados (header/content)."""
+    out = dict(data)
+    if out.get("header"):
+        out["header"] = f"<{len(out['header'])} chars>"
+    if out.get("content"):
+        out["content"] = f"<{len(out['content'])} chars>"
+    return out
+
+
 def _resolve_tags(session: Session, tag_names: list[str]) -> list[Tag]:
     """Return Tag objects for the given names, creating them if they don't exist."""
     tags = []
@@ -45,6 +55,12 @@ def create_article(
     payload: ArticleCreate,
     session: Session = Depends(get_session),
 ):
+    logger.info(
+        "POST /professionals/%s/articles payload: %s",
+        professional_id,
+        _loggable_payload(payload.model_dump()),
+    )
+
     if not session.get(Professional, professional_id):
         raise HTTPException(404, "Profesional no encontrado")
 
@@ -100,6 +116,13 @@ def update_article(
     payload: ArticleUpdate,
     session: Session = Depends(get_session),
 ):
+    logger.info(
+        "PATCH /professionals/%s/articles/%s payload: %s",
+        professional_id,
+        article_id,
+        _loggable_payload(payload.model_dump(exclude_unset=True)),
+    )
+
     article = session.get(Article, article_id)
     if not article or article.professional_id != professional_id:
         raise HTTPException(404, "Artículo no encontrado")

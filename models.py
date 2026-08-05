@@ -64,6 +64,8 @@ class ProfessionalBase(SQLModel):
     mobile_phone: str
     active: bool = False
     status: str = "Inactivo"
+    reviews_count: int = 0
+    rating_avg: float = 0.0
 
 
 class ProfessionalSocials(SQLModel, table=True):

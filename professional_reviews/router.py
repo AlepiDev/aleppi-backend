@@ -7,6 +7,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, select
 
+from article_reviews.router import recompute_professional_metrics
 from database import get_session
 from models import Professional, ProfessionalReview
 from professionals.schemas import (
@@ -111,6 +112,9 @@ def create_professional_review(
     session.commit()
     session.refresh(row)
 
+    recompute_professional_metrics(session, professional_id)
+    session.commit()
+
     return {"success": True, "data": ProfessionalReviewAdminRead.model_validate(row)}
 
 
@@ -134,6 +138,9 @@ def update_professional_review(
     session.commit()
     session.refresh(row)
 
+    recompute_professional_metrics(session, professional_id)
+    session.commit()
+
     return {"success": True, "data": ProfessionalReviewAdminRead.model_validate(row)}
 
 
@@ -151,6 +158,9 @@ def set_professional_review_approval(
     session.commit()
     session.refresh(row)
 
+    recompute_professional_metrics(session, professional_id)
+    session.commit()
+
     return {"success": True, "data": ProfessionalReviewAdminRead.model_validate(row)}
 
 
@@ -163,6 +173,9 @@ def delete_professional_review(
     row = _get_review_or_404(session, professional_id, review_id)
 
     session.delete(row)
+    session.commit()
+
+    recompute_professional_metrics(session, professional_id)
     session.commit()
 
     return {"success": True}

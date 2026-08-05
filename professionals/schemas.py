@@ -114,6 +114,8 @@ class ProfessionalRead(BaseModel):
     user: UserRead
 
     rating: Optional[float] = None
+    reviews_count: int = 0
+    rating_avg: float = 0.0
     reviews: List[ProfessionalReviewRead] = []
     address: Optional[str] = None
     socials: Optional[ProfessionalSocialsRead] = None
