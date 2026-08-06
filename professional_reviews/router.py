@@ -104,7 +104,7 @@ def create_professional_review(
         email=payload.email,
         rating=payload.rating,
         comment=payload.comment,
-        approved=False,
+        approved=True,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )

@@ -60,7 +60,7 @@ class ProfessionalBase(SQLModel):
     license_number: Optional[str] = None
     license_file_path: Optional[str] = None
     state: str
-    city: str
+    city: Optional[str] = None
     mobile_phone: str
     active: bool = False
     status: str = "Inactivo"
@@ -114,7 +114,7 @@ class ProfessionalReview(SQLModel, table=True):
     comment: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    approved: bool = Field(default=False)
+    approved: bool = Field(default=True)
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
 

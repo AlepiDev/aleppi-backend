@@ -87,7 +87,7 @@ class ProfessionalCreate(BaseModel):
     degree: Optional[str] = None
     license_number: Optional[str] = None
     state: str
-    city: str
+    city: Optional[str] = None
     mobile_phone: str
     status: str = "Inactivo"
 
@@ -106,7 +106,7 @@ class ProfessionalRead(BaseModel):
     license_number: Optional[str]
     license_file_path: Optional[str]
     state: str
-    city: str
+    city: Optional[str]
     mobile_phone: str
     status: str
     rejection_reason: Optional[str] = None  # motivo del último rechazo
