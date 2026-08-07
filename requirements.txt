@@ -15,6 +15,7 @@ aiofiles
 
 stripe==11.5.0
 httpx
+resend
 
 # Cloud storage (optional - install as needed)
 #boto3  # For AWS S3

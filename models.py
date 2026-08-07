@@ -128,6 +128,7 @@ class Professional(ProfessionalBase, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
+    deleted_at: Optional[datetime] = Field(default=None, index=True)
 
     user: "User" = Relationship(
         sa_relationship=relationship("User", back_populates="professional")

@@ -3,21 +3,25 @@ from __future__ import annotations
 
 import json
 import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 from uuid import uuid4
 
-from fastapi import (APIRouter, Depends, File, Form, HTTPException,
-                     UploadFile, status)
+from fastapi import (APIRouter, BackgroundTasks, Depends, File, Form,
+                     HTTPException, UploadFile, status)
 from passlib.context import CryptContext
 from sqlalchemy import case, func, update
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
+from auth.deps import get_current_admin, get_current_user, get_current_user_optional
 from database import get_session
+from email_service.sender import send_rejection_email
 from models import (Professional, ProfessionalAddress, ProfessionalRejection,
                     ProfessionalSchedule, ProfessionalSocials, Subscription,
-                    StripeSubscription, User)
+                    StripeSubscription, User, UserSettings)
+from professionals.access import can_manage_profile, sync_professional_status
 from professionals.schemas import (ProfessionalActiveUpdate,
                                    ProfessionalAddressCreate,
                                    ProfessionalAddressRead,
@@ -175,7 +179,11 @@ async def create_professional(
 
 @router.get("/", response_model=List[ProfessionalRead])
 def list_professionals(session: Session = Depends(get_session)):
-    stmt = select(Professional).options(selectinload(Professional.user))
+    stmt = (
+        select(Professional)
+        .where(Professional.deleted_at.is_(None))
+        .options(selectinload(Professional.user))
+    )
 
     # Los suscriptores con plan Premium se posicionan primero. Cuando hay varios
     # Premium, su orden es aleatorio en cada request; el resto queda por id.
@@ -200,11 +208,17 @@ def list_professionals(session: Session = Depends(get_session)):
     professionals = session.exec(stmt).all()
     logger.info("professionals=%s", len(professionals))
     price_to_name = _price_to_plan_name(session)
+    for p in professionals:
+        sync_professional_status(session, p)
     return [_to_professional_read(p, price_to_name) for p in professionals]
 
 
 @router.get("/{professional_id}", response_model=ProfessionalRead)
-def get_professional(professional_id: int, session: Session = Depends(get_session)):
+def get_professional(
+    professional_id: int,
+    session: Session = Depends(get_session),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+):
     stmt = (
         select(Professional)
         .where(Professional.id == professional_id)
@@ -213,6 +227,15 @@ def get_professional(professional_id: int, session: Session = Depends(get_sessio
     professional = session.exec(stmt).first()
     if not professional:
         raise HTTPException(status_code=404, detail="Profesional no encontrado")
+
+    if professional.deleted_at is not None:
+        is_owner_or_admin = current_user is not None and (
+            current_user.role == 1 or current_user.id == professional.user_id
+        )
+        if not is_owner_or_admin or not can_manage_profile(session, professional):
+            raise HTTPException(status_code=404, detail="Profesional no encontrado")
+
+    sync_professional_status(session, professional)
     return _to_professional_read(professional, _price_to_plan_name(session))
 
 
@@ -242,6 +265,7 @@ async def update_professional(
     url_photo: UploadFile | None = File(None),
     license_file: UploadFile | None = File(None),
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     logger.info(
         "PUT /professionals/%s payload: %s",
@@ -275,6 +299,12 @@ async def update_professional(
     professional = session.get(Professional, professional_id)
     if not professional:
         raise HTTPException(status_code=404, detail="Profesional no encontrado")
+
+    if current_user.role != 1 and professional.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="No autorizado")
+
+    if professional.deleted_at is not None and not can_manage_profile(session, professional):
+        raise HTTPException(status_code=403, detail="Perfil eliminado sin suscripción vigente")
 
     user = session.get(User, professional.user_id)
     if not user:
@@ -361,16 +391,22 @@ async def update_professional(
 
 
 @router.delete("/{professional_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_professional(professional_id: int, session: Session = Depends(get_session)):
+def delete_professional(
+    professional_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
     professional = session.get(Professional, professional_id)
     if not professional:
         raise HTTPException(status_code=404, detail="Profesional no encontrado")
 
-    user = session.get(User, professional.user_id)
-    if user:
-        session.delete(user)
-    session.delete(professional)
-    session.commit()
+    if current_user.role != 1 and professional.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="No autorizado")
+
+    if professional.deleted_at is None:
+        professional.deleted_at = datetime.utcnow()
+        session.add(professional)
+        session.commit()
     return
 
 
@@ -397,6 +433,7 @@ def update_professional_status(
     professional_id: int,
     payload: ProfessionalStatusUpdate,
     session: Session = Depends(get_session),
+    _: User = Depends(get_current_admin),
 ):
     professional = session.get(Professional, professional_id)
     if not professional:
@@ -416,7 +453,9 @@ def update_professional_status(
 def reject_professional(
     professional_id: int,
     payload: ProfessionalRejectRequest,
+    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
+    admin: User = Depends(get_current_admin),
 ):
     professional = session.get(Professional, professional_id)
     if not professional:
@@ -428,12 +467,29 @@ def reject_professional(
     rejection = ProfessionalRejection(
         professional_id=professional.id,
         reason=payload.reason.strip(),
+        reviewed_by=admin.id,
     )
 
     session.add(professional)
     session.add(rejection)
     session.commit()
     session.refresh(professional)
+
+    settings = session.exec(
+        select(UserSettings).where(UserSettings.user_id == professional.user_id)
+    ).first()
+    notify_email = settings.notify_email if settings else True
+
+    if notify_email:
+        user = session.get(User, professional.user_id)
+        if user and user.email:
+            background_tasks.add_task(
+                send_rejection_email,
+                to_email=user.email,
+                professional_name=f"{professional.first_name} {professional.last_name}",
+                reason=rejection.reason,
+            )
+
     return professional
 
 

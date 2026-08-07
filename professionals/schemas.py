@@ -109,6 +109,7 @@ class ProfessionalRead(BaseModel):
     city: Optional[str]
     mobile_phone: str
     status: str
+    deleted_at: Optional[datetime] = None  # soft delete; visible solo para el dueño/admin en período de gracia
     rejection_reason: Optional[str] = None  # motivo del último rechazo
     subscription: Optional[str] = None  # nombre del plan de la suscripción activa
     user: UserRead
