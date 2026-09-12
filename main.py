@@ -17,6 +17,8 @@ from articles.router import router as articles_router
 from auth.router import router as auth_router
 from dashboard.router import router as admin_dashboard_router
 from database import create_db_and_tables
+from leads.router import router as leads_router
+from leads.router import admin_router as admin_leads_router
 from professionals.router import router as professionals_router
 from professional_reviews.router import router as professional_reviews_router
 from stripe_local.router import router as stripe_router
@@ -123,6 +125,8 @@ app.include_router(article_reviews_router)
 app.include_router(me_settings_router)
 app.include_router(article_comments_router)
 app.include_router(articles_web_router)
+app.include_router(leads_router)
+app.include_router(admin_leads_router)
 
 @app.on_event("startup")
 def on_startup():

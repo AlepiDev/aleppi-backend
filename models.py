@@ -495,6 +495,39 @@ class ArticleRejection(SQLModel, table=True):
     )
 
 
+class Lead(SQLModel, table=True):
+    __tablename__ = "leads"
+
+    id: UUID = Field(
+        default_factory=uuid4,
+        sa_column=Column(PG_UUID(as_uuid=True), primary_key=True),
+    )
+
+    nombre: str
+    whatsapp: str
+    email: Optional[str] = Field(default=None, index=True)
+    profesion: Optional[str] = None
+    especialidad: Optional[str] = None
+    plan: Optional[str] = None
+
+    source: Optional[str] = None
+    page: Optional[str] = None
+    utm_source: Optional[str] = None
+    utm_medium: Optional[str] = None
+    utm_campaign: Optional[str] = None
+    utm_content: Optional[str] = None
+    utm_term: Optional[str] = None
+
+    received_at: Optional[datetime] = None
+
+    # x-request-id del cliente: permite deduplicar reintentos del mismo submit.
+    request_id: Optional[str] = Field(default=None, index=True, unique=True)
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class UserSettings(SQLModel, table=True):
     __tablename__ = "user_settings"
 
